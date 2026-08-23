@@ -1,0 +1,15 @@
+spark:envelope	PASS	Total number of tests run: 5 Tests: succeeded 5, failed 0, canceled 0, ignored 0, pending 0 
+spark:recovery-key	FAIL	rc=1 Total number of tests run: 3 Tests: succeeded 0, failed 3, canceled 0, ignored 0, pending 0 *** 3 TESTS FAILED *** 
+spark:extensions	PASS	Total number of tests run: 48 Tests: succeeded 48, failed 0, canceled 0, ignored 0, pending 0 
+spark:dagscheduler	PASS	Total number of tests run: 225 Tests: succeeded 225, failed 0, canceled 0, ignored 0, pending 0 
+spark:mapoutput	PASS	Total number of tests run: 37 Tests: succeeded 37, failed 0, canceled 0, ignored 1, pending 0 
+spark:scalastyle	FAIL	5 error lines
+spark:envelope-fixture	SKIP	recorded a new fixture from the current code
+spark:envelope-compat	PASS	2 checks
+harness:write-recovery	FAIL	rc=1 E2E-UPSTREAM: ======== 16 passed, 4 failed ========
+celeborn:lease	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
+celeborn:protocol	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
+celeborn:leasestore	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
+celeborn:binding	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
+celeborn:statemachine	FAIL	see logs/celeborn-statemachine.log
+iceberg:ledger	FAIL	see logs/iceberg-ledger.log

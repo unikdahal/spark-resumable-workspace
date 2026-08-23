@@ -1,0 +1,51 @@
+# Build outputs
+target/
+**/target/
+build/
+**/build/
+bin/
+**/bin/
+out/
+**/out/
+dist/
+**/dist/
+
+# Logs & temporary files
+*.log
+**/*.log
+*.tmp
+**/*.tmp
+*.swp
+**/*.swp
+*~
+**/*~
+
+# Heavy Archives & Jars
+*.jar
+**/*.jar
+*.tgz
+**/*.tgz
+*.zip
+**/*.zip
+*.tar.gz
+**/*.tar.gz
+.vendor/
+**/.vendor/
+
+# IDE & Editor settings
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+.bsp/
+**/.bsp/
+.metals/
+**/.metals/
+.bloop/
+**/.bloop/
+*.iml
+**/*.iml
+
+# Node
+node_modules/
+**/node_modules/

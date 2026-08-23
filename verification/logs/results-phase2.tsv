@@ -1,0 +1,10 @@
+spark:write-recovery	FAIL	rc=1 see /home/unik/Coding/spark/verification/logs/spark-write-recovery.log
+spark:recovery-key-rerun	FAIL	rc=1 see /home/unik/Coding/spark/verification/logs/spark-recovery-key-rerun.log
+spark:scalastyle	FAIL	10 violations
+celeborn:lease	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
+celeborn:protocol	PASS	Total number of tests run: 5 Tests: succeeded 5, failed 0, canceled 0, ignored 0, pending 0 
+celeborn:leasestore	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
+celeborn:binding	PASS	Total number of tests run: 2 Tests: succeeded 2, failed 0, canceled 0, ignored 0, pending 0 
+celeborn:mastersuite	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
+celeborn:statemachine	FAIL	rc=1 see /home/unik/Coding/spark/verification/logs/celeborn-statemachine.log
+iceberg:ledger	FAIL	rc=1 BUILD FAILED in 3m 6s 
