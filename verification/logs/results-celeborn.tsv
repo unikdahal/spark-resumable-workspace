@@ -1,7 +1,15 @@
 celeborn:protocol	PASS	Total number of tests run: 0 Total number of tests run: 5 
 celeborn:lease	PASS	Total number of tests run: 0 Total number of tests run: 11 
-celeborn:mastersuite	FAIL	rc=1 Total number of tests run: 0 Total number of tests run: 7 
+celeborn:mastersuite	PASS	Total number of tests run: 0 Total number of tests run: 7 
 celeborn:statemachine	PASS	[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
 celeborn:leasestore	PASS	Total number of tests run: 0 Total number of tests run: 5 
 celeborn:controller	PASS	Total number of tests run: 0 Total number of tests run: 4 
 celeborn:binding	PASS	Total number of tests run: 0 Total number of tests run: 2 
+celeborn:blobconf	PASS	Total number of tests run: 0 Total number of tests run: 4 
+celeborn:configdocs	PASS	Total number of tests run: 0 Total number of tests run: 8 
+celeborn:blobpointer	PASS	Total number of tests run: 0 Total number of tests run: 10 
+celeborn:blobstore	PASS	Total number of tests run: 0 Total number of tests run: 8 
+celeborn:blobreplication	PASS	Total number of tests run: 0 Total number of tests run: 10 
+celeborn:blobbackend	PASS	Total number of tests run: 0 Total number of tests run: 9 
+celeborn:blobcollector	PASS	Total number of tests run: 0 Total number of tests run: 7 
+celeborn:blobrepair	PASS	Total number of tests run: 0 Total number of tests run: 8 

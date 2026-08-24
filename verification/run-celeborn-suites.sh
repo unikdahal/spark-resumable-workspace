@@ -53,6 +53,18 @@ run_java_suite master MasterStateMachineSuiteJ statemachine
 run_scala_suite worker org.apache.celeborn.service.deploy.worker.ApplicationLeaseStoreSuite leasestore
 run_scala_suite worker org.apache.celeborn.service.deploy.worker.ControllerSuite controller
 run_scala_suite client org.apache.celeborn.client.LifecycleManagerRecoveryBindingSuite binding
+run_scala_suite common org.apache.celeborn.common.RecoveryBlobConfSuite blobconf
+run_scala_suite common org.apache.celeborn.ConfigurationSuite configdocs
+run_scala_suite master \
+  org.apache.celeborn.service.deploy.master.clustermeta.RecoveryBlobPointerSuite blobpointer
+run_scala_suite worker org.apache.celeborn.service.deploy.worker.RecoveryBlobStoreSuite blobstore
+run_scala_suite client \
+  org.apache.celeborn.client.recovery.RecoveryBlobReplicationSuite blobreplication
+run_scala_suite client \
+  org.apache.celeborn.client.recovery.RecoveryTaskCommitBackendSuite blobbackend
+run_scala_suite worker \
+  org.apache.celeborn.service.deploy.worker.RecoveryBlobCollectorSuite blobcollector
+run_scala_suite master org.apache.celeborn.service.deploy.master.RecoveryBlobRepairSuite blobrepair
 
 echo
 column -t -s $'\t' "$RESULTS"
