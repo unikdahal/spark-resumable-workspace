@@ -618,3 +618,42 @@ the stronger one. The test was asserting a message from the other rejection path
 Updated to cover both paths explicitly: a competing owner during a live lease is refused on
 ownership, and the *current* owner presenting the wrong epoch is refused by the replicated state
 machine as a stale transition. 6 of the 7 MasterSuite tests already passed; this was the seventh.
+
+## C2 progress: storage, metadata, replication and configuration are in
+
+| Piece | State | Tests |
+|---|---|---|
+| Worker content-addressed store (`RecoveryBlobStore`) | done | 8 |
+| Master pointer CAS, repair, snapshot, cleanup | done | 7 |
+| Quorum replication + transport seam (`RecoveryBlobReplication`) | done | 10 |
+| Configuration (six keys, off by default) | done | 4 |
+| Worker/client RPC that carries blobs | not started | |
+| Repair scheduling and orphan GC | not started | |
+| LifecycleManager choosing inline vs blob by threshold | not started | |
+
+29 tests, all passing on JDK 17 under the CPU cap.
+
+**F18 — `ConfigurationSuite` treats `docs/configuration/*.md` as golden files, and had been failing
+since the recovery keys landed.** Seven `celeborn.master.recovery.*` keys were never documented, so
+that suite failed for reasons unrelated to whatever a developer was changing. Regenerating with
+`UPDATE=1` added thirteen rows to `master.md` (codex's seven plus my six) and one to `client.md`.
+Fourth Celeborn gate that had never been run against this work, after spotless, main javac and test
+javac.
+
+**F19 — Celeborn cross-builds Scala 2.12 and 2.13, and the default profile is 2.12.**
+`scala.jdk.CollectionConverters` compiles on neither by default here; the directory walk now uses a
+plain iterator loop behind one helper, which is identical on both versions. Worth knowing before
+writing any new Scala in this repository.
+
+### Two test failures that were my expectations, not the code
+
+- `MasterSuite` expected `"Stale application lease transition"` where the master correctly answers
+  `"is still leased to driver-1"`: the ownership guard fires before any epoch arithmetic.
+- `replicasToRepair` returned three replacements where I had asserted two. Three is right — no
+  listed replica was live, so the shortfall is the full replication factor, not one replacement per
+  dead entry. My assertion had assumed per-dead-replica repair.
+
+Both are recorded because the distinction matters: of the failures so far, three were defects in the
+code under test (F14, F15, F17), two were defects in my own integration (the restore accounting
+leak, the Scala converters), and two were bad expectations. The accounting leak initially looked
+exactly like a bad expectation.

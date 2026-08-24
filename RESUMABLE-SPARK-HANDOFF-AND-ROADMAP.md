@@ -78,8 +78,8 @@ two-thread cap. Parallel rows overlap, so their durations must not be simply add
 | X2.3a | Define authoritative per-task row-level counters with nonnegative and overflow-safe aggregation | Implemented: fixed nine-counter schema, nonnegative validation, overflow-safe sum, and per-operation accumulator; focused rerun pending | X2.2 | 0.5-1 day | High |
 | X2.3b | Add envelope/schema version carrying row-level summaries while preserving v1/v2 compatibility | Implemented: v3 carries optional schema plus fixed summary, full checksum, action-protocol version, and fail-closed presence rules; fresh tests/API artifact remain | X2.3a | 1-2 days | High |
 | X2.3c | Generate summaries from the authoritative row-level writer/scan path, not transient driver metrics | Implemented: Spark-owned semantic control rows survive exchange/AQE, writers skip control-only rows, and the canonical task envelope carries exact counters. Physical writer-call tests remain | X2.3a-X2.3b | 2-4 days | Medium |
-| X2.3d | Bind command, mode, input/output schemas, distribution/order, source anchors, transaction ID, and generation into the recovery manifest | Partially implemented: stable recovery identity, connector compatibility bytes, and action-protocol version exist; full immutable binding audit and negative fixtures remain | X2.1-X2.3c | 3-5 days | Medium |
-| X2.3e | Execute `ReplaceData` with committed-task adoption, missing-task execution, exact totals, retry/speculation, and fail-closed tests | Pending connector-neutral execution suite; underlying task adoption/CAS machinery already passes generic recovery tests | X2.3b-X2.3d | 4-7 days | Medium |
+| X2.3d | Bind command, mode, input/output schemas, distribution/order, source anchors, transaction ID, and generation into the recovery manifest | Implemented but latest edits are unverified: a Spark-owned versioned/checksummed manifest now binds execution/write/generation/sink/catalog/table IDs, command/mode, canonical operation/condition/conflict-filter digests, explicit source and task schemas, structurally encoded distribution/order, subquery-aware source anchors, and connector bytes in a separate v4 outer field. Transaction remains intentionally absent while combined recovery is rejected | X2.1-X2.3c | 1-3 days verification and adversarial fixtures | Medium |
+| X2.3e | Execute `ReplaceData` with committed-task adoption, missing-task execution, exact totals, retry/speculation, and fail-closed tests | Connector-neutral physical command fixtures now prove canonical task adoption with zero replacement writers, exact UPDATE totals, missing/wrong manifest rejection, and manifest drift rejection; newest fixtures await compilation/execution. Full DELETE/MERGE command-plan matrix remains | X2.3b-X2.3d | 3-6 days | Medium |
 | X2.4 | `WriteDelta` safely recovers data/delete-file pairs, retry races, and cleanup | Type-preserving public API and wrapper forwarding implemented; production sources compile and focused contract suites pass. Actual paired-output recovery and row-level guard removal remain | X2.1-X2.3 | 1.5-2.5 weeks | Medium-Low |
 | X2.4a | Preserve `DeltaWriter`/factory/batch-write type contracts while exposing recovery capabilities | Implemented and compiled; wrappers preserve `DeltaWrite`/`DeltaBatchWrite` and forward recovery ID, store, and metric schema | X2.2 | 0 | High |
 | X2.4b | Add Java/Scala conformance fixtures and freeze additive API in allowlist/artifact | Java and Scala conformance fixtures pass; final MiMa/style/signature/class-list/JAR regeneration remains | X2.4a | 1-2 days | High |
@@ -124,9 +124,11 @@ Completed and evidenced so far:
   API-artifact reproduction passed;
 - design/API documents and a deterministic API artifact generator exist in the Spark tree.
 
-The immediate gate is correcting and running the new AQE execution test, then running the focused
-row-summary/control-event suites and a capped aggregate rerun. The dominant work after that is to
-finish immutable row-level manifest binding, prove physical writer action/control-row behavior,
+The AQE execution test and the focused row-summary/control-event suites pass. The immediate gate is
+compiling and running the newest Spark-owned manifest and physical command-adoption fixtures; the
+execution service reported a temporary usage-limit rejection on the next build request, so these
+latest edits are not yet verified. The dominant work after that is to finish the exhaustive
+DELETE/UPDATE/MERGE rewrite matrix, prove physical writer action/control-row behavior,
 implement connector-neutral `ReplaceData` and paired-output `WriteDelta` crash conformance, remove
 the row-level recovery guard only for proven capabilities, finish transaction/batch ordering and
 fencing, and add the complete conformance kit. Shuffle benchmark evidence and upstream
