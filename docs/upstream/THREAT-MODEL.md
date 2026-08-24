@@ -53,6 +53,7 @@ highest-value security change available.
 | Executor → LifecycleManager | lease injected by the LifecycleManager; an executor **cannot** claim an arbitrary epoch |
 | Driver → Master | `checkAuth(appId)` + lease epoch/owner on every request |
 | Master → Worker | `FenceApplication`; workers persist and enforce the accepted lease |
+| Client → Worker (blob upload) | **none beyond checkAuth.** The worker verifies digest and length of what it stores, but never who is storing it; lease fields on blob RPCs are claims until auth is on |
 | Master ingress → Raft apply | identity validation + SHA-256 re-verification at both points |
 | Snapshot restore → live state | validated into temporary state before installation |
 | Spark → connector payload | opaque bytes; Spark never interprets, connector never sees the envelope |
@@ -79,6 +80,7 @@ because it must be able to, but it cannot fence a driver or act for another appl
 | T-12 | Ledger-entry forgery in Iceberg | **Out of scope of this protocol** — requires catalog write access, which already implies table write access |
 | T-13 | Recovery-ID collision between unrelated executions | **Not mitigated by design.** `driverRecovery.id` is a user-supplied claim of identity; reuse is indistinguishable from recovery |
 | T-14 | Denial of service by exhausting the global inline budget | **Open.** Limits are global, with no per-application fairness: one large write can starve every other resumable write |
+| T-15 | Unauthenticated blob upload and pointer poisoning | **Open — same root cause as T-1, now on the blob path.** Content addressing authenticates *content*, never *authorship*: an attacker who computes `sha256` over their own bytes can `PushRecoveryBlob` it to workers (filling worker disks until orphan GC reaps it after `orphanGrace`) and then win the pointer CAS exactly as in §0, substituting arbitrary payload content for any partition of a known `(appId, recoveryId, writeId)`. Quorum-before-CAS bounds neither: the attacker controls enough workers' worth of uploads from one host. Pointer CAS is lease-fenced (`requireValidApplicationLease`), but with auth off the lease fields are unauthenticated claims |
 
 ## 4. Residual risks worth writing into the upstream proposal
 
@@ -93,8 +95,12 @@ because it must be able to, but it cannot fence a driver or act for another appl
 4. **Audit trail.** Publications and takeovers are logged, but there is no structured audit event for
    "driver B fenced driver A and adopted N stages". For a feature whose failure mode is *silently
    using someone else's output*, an audit record is a reasonable review request.
-5. **Blob backend inherits all of this.** When payloads move to worker-replicated blobs, T-1 extends
-   to the blob upload path: content-addressed storage authenticates *content*, never *authorship*.
+5. **Blob backend inherits all of this (T-15, now implemented).** Payloads have moved to
+   worker-replicated blobs: content-addressed storage authenticates *content*, never *authorship*,
+   so T-1 extends to the blob upload path — including a disk-filling variant that did not exist
+   inline, because worker storage is now writable by whoever can reach the blob RPC. The A3 fix
+   (refusing to install the recovery provider without auth) closes the client side of this; the
+   services' `checkAuth` remains the only server-side guard.
 
 ## 5. What a security review will ask that is not answered yet
 

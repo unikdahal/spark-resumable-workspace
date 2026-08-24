@@ -2,6 +2,10 @@
 
 Last updated: 2026-08-24 (Asia/Kolkata)
 
+> Operational ledger (progress, ownership, estimates). It is not the architecture overview.
+> Start at the root `README.md`. Design truth for the upstream track is `docs/upstream/`.
+> Local forks are independent checkouts pinned in `workspace/repos.yaml`, not gitlinks.
+
 > This file is the durable record of the progress summary, granular backlog, estimates, evidence,
 > constraints, and integration roadmap discussed with the user. Section 0 is the authoritative
 > current snapshot. Later package estimates describe the broader program and must not override the
@@ -27,6 +31,7 @@ remain the specification; a task is marked complete here only when its stated ev
 | X3 executor-churn and scale evidence | In progress | Recreated stages retain recovered provenance and late fetch failure remains fail-closed (230/230 scheduler tests). Compact recovered metadata is now O(maps + reducers), with serialization-sharing tests and a 10K/100K/1M benchmark authored; aggregate and benchmark evidence remain | 3-7 days |
 | X4 integrated crash/failure audit | Waiting for Claude-owned adapters | Requires Celeborn/Iceberg builds against frozen jar and external two-driver harness | 2-3 weeks after integration |
 | X5 upstream decomposition | Pending | Design proposal, reviewable PR series, compatibility/migration notes, disclosure audit | 1-2 weeks |
+| 2026-08-25 session (ox-alpha) | Partially complete | A3 committed (`b80ba5f72`); C1 triage table complete — 11 Spark recovery suites green incl. all four row-level suites, DAGSchedulerSuite 233/233 after fixture fix; F9 withdrawn; blob backend reviewed with one capacity-accounting fix applied and two repair-executor flags recorded; Iceberg B1/B2/B3/B4 tests authored, verification queued. Full evidence: `docs/upstream/VERIFICATION-STATUS.md` §1a/§2a; planned splits: `PATCH-SPLIT-PLAN.md` session deltas | see TODO.md groups A–E |
 
 ### Independently executable Codex boundary
 

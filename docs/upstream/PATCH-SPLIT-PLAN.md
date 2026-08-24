@@ -30,7 +30,8 @@ Reviewable as "new opt-in API, dead code until something injects a provider".
 |---|---|
 | `core/.../shuffle/ShuffleStageRecovery.scala` | `ShuffleStageRecoveryHandler`, `RecoveredShuffleOutput` |
 | `sql/catalyst/.../connector/catalog/SupportsRecoveryAnchor.java`, `SupportsRecoveryWrite.java` | |
-| `sql/catalyst/.../connector/write/{SupportsBatchWriteRecovery,BatchWriteRecoveryState,RecoveryCommitMessageCodec,RecoveryTaskCommitStore,RecoveryDataWriter,RecoveryDataWriterFactory,SupportsRecoveryCommitDiscard}.java` | 7 interfaces |
+| `sql/catalyst/.../connector/write/{SupportsBatchWriteRecovery,BatchWriteRecoveryState,RecoveryCommitMessageCodec,RecoveryDataWriter,RecoveryDataWriterFactory,SupportsRecoveryCommitDiscard}.java` | 6 interfaces |
+| `sql/catalyst/.../connector/recovery/RecoveryTaskCommitStore.java` | moved into its own `o.a.s.sql.connector.recovery` package (commit `ace8a2de502`) — decide before review whether the remaining recovery types follow it or the move is reverted to keep PR-1 one-package |
 | `sql/catalyst/.../analysis/RecoveryAnchorResolver.scala` | trait + info case classes |
 | `sql/core/.../adaptive/ShuffleStageRecovery.scala` | SQL-level SPI |
 | `sql/core/.../SparkSessionExtensions.scala` | `injectShuffleStageRecovery` |
@@ -77,12 +78,19 @@ snapshot/HA replay, the semantic `recoveryKey` index and its cleanup. Depends on
 task-commit CAS (107–112), `RecoveryTaskCommitUtils`, the seven inline limits, aggregate accounting.
 Depends on CIP-1.
 
-**CIP-4 — Spark integration.** `CelebornShuffleStageRecoveryExtension` and the `LifecycleManager`
+**CIP-4 — recovery blob backend.** Blob transport RPCs (113–122), the `recoveryBlobPointers`
+replicated map and its Raft commands (`PublishRecoveryBlobPointer`, `RepairRecoveryBlobPointer`),
+worker `RecoveryBlobStore`/`RecoveryBlobCollector`, the leader-side repair planner/cycle/executor,
+the `celeborn.master.recovery.blob.*` configuration and the client replication driver. Depends on
+CIP-3 (it replaces that CIP's inline storage for large payloads; the inline store remains for small
+payloads and as a read fallback). Wire-level contract: `PROTOCOL-SPEC.md` §5.
+
+**CIP-5 — Spark integration.** `CelebornShuffleStageRecoveryExtension` and the `LifecycleManager`
 client surface. Depends on Spark PR-1 being released, and on the Spark-version decision below.
 
 Reviewers will ask about the inline-payload storage in Raft. Lead with the limits and the sizing
-table from `RETENTION-AND-SIZING.md` §3, and state the worker-replicated blob backend as the
-follow-up rather than letting them discover the gap.
+table from `RETENTION-AND-SIZING.md` §3, then point at CIP-4: large payloads no longer ride in Raft
+at all — the pointer (~200 bytes) does, and blobs are quorum-durable before any pointer exists.
 
 ## Iceberg
 
@@ -118,4 +126,44 @@ consumer needs it on 4.x.
 3. Celeborn CIP-1 (independent value; can be reviewed in parallel with Spark PR-1).
 4. Spark PR-2, PR-3.
 5. Celeborn CIP-2, CIP-3.
-6. Celeborn CIP-4, Iceberg Proposal 2 — after the Spark API is available in a release.
+6. Celeborn CIP-4 (blob backend; after CIP-3).
+7. Celeborn CIP-5, Iceberg Proposal 2 — after the Spark API is available in a release.
+
+## Session deltas awaiting commits (2026-08-25 plan, not yet executed)
+
+How the working trees map onto that spine once the owners decide to land things. Nothing here is
+committed yet except where noted.
+
+### Celeborn (`resume-adoption-patch10`)
+
+| Commit | State | Contents |
+|---|---|---|
+| `b80ba5f72` fix: refuse to install driver recovery without authentication | **committed** | extension precondition + `CelebornShuffleStageRecoveryExtensionSuiteJ`. Stands alone: touches only CIP-5 files, no overlap with in-flight blob work |
+| A1: land the in-flight repair work | pending owner decision | the 11 uncommitted replicate/repair files + `RpcRecoveryBlobRepairExecutor.scala`; gates = 15-suite script |
+| A5/A6/A2… | not started | blocked on A1 landing |
+
+### Spark (`spark-resumable-upstream`, all uncommitted)
+
+One commit is impossible to separate cleanly from another agent's row-level work — my fixes are
+inside the same files. Planned split when it lands:
+
+1. **Row-level and transaction recovery** (C4): the 11 modified/new files incl. `V2Writes`
+   (with the `RowLevelSchemas` argcount fix folded in) and the test-compile fixes to
+   `RowLevelTaskRecoveryStateSuite`. Gate: §2a table green.
+2. **DAGSchedulerSuite fixture correction**: consumer partition count must match the partitioner
+   (`HashPartitioner(2)` + matching recovered output). Gate: suite green after fix.
+3. Design docs live in the workspace repo, not the fork.
+
+### Iceberg (`oss-fixes/iceberg`, all uncommitted)
+
+1. **Core: ledger horizon vs declared recovery window** — `SnapshotProducer`, `TableProperties`,
+   `TestSnapshotIdempotency` (B1). Independent, mergeable now.
+2. **Test: catalog round-trip matrix for ledger properties** — `CatalogTests`, `TestHadoopCatalog`
+   (B4). Rides after 1 only because it asserts against the same property names.
+3. **Spark/v4.1: drift and losing-writer recovery tests** — `TestSparkWriteRecovery` (B2+B3).
+   Blocked on the version decision actually working end to end (next item).
+4. **Build: point spark41 at the fork snapshot** — `gradle/libs.versions.toml` (B6 option 2,
+   testing-only). Must carry a revert path note: stock 4.1.3 returns once PR-1 ships.
+
+Each commit message follows rule 7 of `TODO.md`: what changed, why the alternative was rejected,
+`Co-Authored-By` and `Claude-Session` trailers.

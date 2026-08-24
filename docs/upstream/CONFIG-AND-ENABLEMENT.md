@@ -127,9 +127,11 @@ The API is `SnapshotUpdate.idempotencyKey(property, value)`, whose default imple
 ## 4. Minimum working configuration
 
 ```properties
-# Spark job
+# Spark job — recovery now refuses to construct without authentication
+# (CelebornShuffleStageRecoveryExtensionSuiteJ pins this behaviour).
 spark.sql.extensions                          org.apache.spark.shuffle.celeborn.CelebornShuffleStageRecoveryExtension
 spark.celeborn.driverRecovery.enabled         true
+spark.celeborn.auth.enabled                   true
 spark.celeborn.driverRecovery.id              <stable-per-logical-execution-id>
 spark.celeborn.client.application.uniqueId    <stable-per-application-id>
 spark.celeborn.driverRecovery.leaseDuration   10m

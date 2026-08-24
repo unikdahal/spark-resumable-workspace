@@ -1,9 +1,9 @@
 # Upstream documentation set
 
 Written against the working tree on 2026-08-24. These documents describe the **upstream track**
-(`spark-resumable-upstream` + `celeborn` + `oss-fixes/iceberg`), not the earlier POC track that
-`../LLD-resumable-spark-driver.md` and `../OSS-PROJECT-DESIGN.md` describe. The two tracks solve the
-same problem with different mechanisms; do not read one as documentation for the other.
+(local checkouts `spark-resumable-upstream` + `celeborn` + `oss-fixes/iceberg`; pins in
+`workspace/repos.yaml`), not the earlier POC track archived under `../history/`. The two tracks
+solve the same problem with different mechanisms; do not read one as documentation for the other.
 
 Ownership, per `RESUMABLE-SPARK-HANDOFF-AND-ROADMAP.md` §5: Celeborn and Iceberg material here is
 maintained by Claude; the Spark-side proposal and the Spark half of the protocol spec describe code
@@ -25,6 +25,8 @@ test run that happened, or it is marked as unverified. Nothing is restated from 
 | `RUNBOOK.md` | you are operating a resumable job: preflight checks, how to tell whether anything was recovered, and what each failure string means |
 | `VERIFICATION-STATUS.md` | you want to know what has actually been run, as opposed to written |
 | `CELEBORN-BLOB-BACKEND-DESIGN.md` | you are implementing or reviewing the scalable replacement for inline task-payload storage |
+| `ROW-LEVEL-RECOVERY-DESIGN.md` | you are touching recoverable DELETE/UPDATE/MERGE: the generation fence, manifest, and summary semantics |
+| `AUTH-PRECONDITION-DESIGN.md` | you are changing how recovery enablement interacts with authentication (T-1) |
 | `PATCH-SPLIT-PLAN.md` | you are preparing pull requests |
 | `SPARK-SPIP-RESUMABLE-EXECUTION.md` | the Spark-side proposal |
 | `CELEBORN-CIP-DRIVER-RECOVERY.md` | the Celeborn-side proposal |

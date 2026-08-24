@@ -7,8 +7,10 @@ real work after a real SIGKILL**.
 
 ## 0. Do not write this harness cold
 
-`resume-poc-e2e/` already contains a working multi-process harness with a real Celeborn cluster, a
-real Polaris REST catalog and MinIO in podman, and a kill-mid-flight test:
+The archived `resume-poc-e2e` repo (see `workspace/repos.yaml`, role `archived-research`) already
+contains a working multi-process harness with a real Celeborn cluster, a real Polaris REST catalog
+and MinIO in podman, and a kill-mid-flight test. It is research evidence for an earlier mechanism,
+not the merge-path suite. Reuse its operational tricks; do not treat it as the product harness:
 
 | Script | What it already does | Result recorded in its README |
 |---|---|---|

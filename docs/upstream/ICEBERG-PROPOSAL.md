@@ -47,8 +47,17 @@ Details that matter:
 ### Compatibility
 
 Purely additive: a default method on the public interface, and table properties an older reader
-ignores. Rollback leaves at most `max-entries` unused properties behind. Needs revapi clearance and a
-review of whether the ledger belongs in table properties or in a dedicated metadata field.
+ignores. Rollback leaves at most `max-entries` unused properties behind. A review of whether the
+ledger belongs in table properties or in a dedicated metadata field remains open.
+
+**API status (B5 verdict): `SnapshotUpdate.idempotencyKey` needs an upstream API discussion and
+vote; it cannot be cleared silently.** It adds a method to a published `api/` interface, which
+revapi reports as `java.method.addedToInterface` against the release baseline. Iceberg's own rules
+require new interface methods to carry default implementations (this one throws
+`UnsupportedOperationException`, matching other opt-in capabilities) and require an approved
+exception for any public API change. The submission must therefore include: the mailing-list
+proposal for the method, the revapi exclusion, and the justification — that idempotency is
+opt-in per implementation, inert unless called, and additive with a throwing default.
 
 ### Testing
 
@@ -96,6 +105,9 @@ paths fail closed *before* writers are created, redundantly with Spark's own ref
    maximum reference age longer than the recovery window, verified on takeover and never falling
    forward to a newer snapshot. Not implemented; it also requires Spark to expose the execution
    recovery identity during source anchoring.
-3. **Ledger horizon vs recovery window.** `commit.idempotency.retention-ms` must be ≥ the Celeborn
-   recovery window; the two are configured independently today. See `RETENTION-AND-SIZING.md` §2.
+3. **Ledger horizon vs recovery window.** `commit.idempotency.retention-ms` must be ≥ the recovery
+   window of any external recovery system relying on the ledger. `SnapshotProducer` now warns at
+   commit time when a table declares `commit.idempotency.recovery-window-ms` shorter than its
+   retention (boundary-tested in `TestSnapshotIdempotency`); what remains is operator guidance on
+   sizing, not detection. See `RETENTION-AND-SIZING.md` §2.
 4. Row-level operations, durable custom metrics, and catalog transaction interaction.

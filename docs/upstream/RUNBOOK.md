@@ -14,7 +14,7 @@ question. Written 2026-08-24.
 | `celeborn.master.applicationLease.maxDuration` ≥ that lease | the master caps the grant silently |
 | Iceberg `commit.idempotency.retention-ms` ≥ the recovery window | otherwise commit proof can expire inside the window |
 | Snapshot expiry disabled (or far longer than the window) for source tables | a pinned snapshot can be expired while the driver is down; recovery then fails closed |
-| Partition count ≤ ~100K and commit messages ≤ 1 MiB | the inline task-commit store is bounded; see `RETENTION-AND-SIZING.md` §3 |
+| Partition count ≤ ~100K and commit messages ≤ 1 MiB with the inline store; ≤ 64 MiB per payload with `celeborn.master.recovery.blob.enabled=true` | sizing bounds differ by backend; see `RETENTION-AND-SIZING.md` §3 |
 
 ## 2. Is recovery actually on?
 
@@ -85,7 +85,72 @@ In order of likelihood:
 - For a write: the sink's committed manifest and the count of durable task records.
 - Whether any `expireSnapshots`/table maintenance ran between the two drivers.
 
-## 7. Known gaps an operator will hit
+## 7. Recovery blob backend operations
+
+Active only when `celeborn.master.recovery.blob.enabled=true`. Large task-commit payloads then live
+as content-addressed blobs on workers; Raft holds only the pointer. Design:
+`CELEBORN-BLOB-BACKEND-DESIGN.md`; wire details: `PROTOCOL-SPEC.md` §5.
+
+### Metrics
+
+Master-side recovery counters exist (`master` source, label `outcome`):
+
+| Metric | Outcomes | Meaning |
+|---|---|---|
+| `RecoveryTaskCommitPublishCount` | accepted / duplicate / fenced / rejected | every task-commit **and** blob-pointer CAS. `accepted` = this attempt became canonical; `duplicate` = an earlier value was returned unchanged; `fenced` = lease lost; `rejected` = validation or capacity |
+| `RecoveryLookupCount` | hit / miss / corrupt / fenced / rejected | reads of durable records. A `miss` permits recomputation, a `corrupt` read does not — the two must never be summed |
+| `RecoveryCatalogPublishCount`, `RecoveryAnchorResolveCount`, `ApplicationLeaseCount` | same publish outcomes | shuffle catalog, source/write anchors, lease transitions |
+| Gauges: `RecoveryTaskCommitInlineBytes/Records`, `RecoveryCommittedCatalogCount`, `ApplicationLeaseActiveCount` | — | live-state size |
+
+**Blob-specific metrics from the design (`CELEBORN-BLOB-BACKEND-DESIGN.md` §10) are not
+implemented**: there is no upload, fetch, repair or GC counter, and no below-quorum gauge. Until
+they exist, repair health is observable only through the leader-master logs below.
+
+Knobs an operator will tune:
+
+| Key | Default | Operational meaning |
+|---|---|---|
+| `celeborn.master.recovery.blob.replicationFactor` | `3` | replicas targeted per blob |
+| `celeborn.master.recovery.blob.quorum` | `2` | durable acknowledgements required before the pointer exists — a publication below quorum never happened, as far as recovery is concerned |
+| `celeborn.master.recovery.blob.inlineThreshold` | `4k` | payloads at or under this never become blobs; they ride inline and follow the §1 sizing limits instead |
+| `celeborn.master.recovery.blob.orphanGrace` | `1h` | how long an unreferenced blob is kept before a worker may delete it; must exceed the worst upload→pointer-CAS gap or GC can eat a live payload's twin |
+| `celeborn.master.recovery.blob.repairInterval` | `5m` | leader scan period for under-replicated pointers |
+
+### Is repair keeping up?
+
+Repair runs on the **leader** master only, every `repairInterval`, at most 64 copies per cycle
+(hardcoded `Master.RecoveryBlobRepairTasksPerCycle`), most-degraded-first:
+
+- `Repaired N under-replicated recovery blob(s)` — progress. A steady small `N` after worker loss is
+  normal; `N` stuck at the same value across cycles means repair is not keeping up with losses.
+- `Failed to repair the recovery blob for partition N` (warning) — that copy failed this cycle; the
+  pointer is untouched and the next cycle retries. Recurring warnings for the same partition mean a
+  source replica is dying or unreachable.
+- **Silence is ambiguous**: no repair lines can mean "nothing degraded" or "the scanner is not
+  running". Confirm liveness by stopping nothing and checking that the leader logs the line after a
+  known worker loss, or by comparing two cycles' timestamps in the master log.
+
+### When a pointer has no live replica
+
+This is data loss for that partition, by design, and repair refuses to paper over it. The planner
+logs once per scan:
+
+> `Recovery blob for partition P of write W has no surviving replica among ...`
+
+and deliberately does *not* plan a repair — there is nothing to copy from. What the operator does:
+
+1. Treat the affected recovery as lost. A replacement driver reading it fails closed (hard failure,
+   never recompute) — that is correct behaviour, do not try to route around it.
+2. Rerun the job with a **fresh** `spark.celeborn.driverRecovery.id`.
+3. If this was a total worker-set loss, restore capacity first; the remote-storage tier that would
+   have saved this case is not implemented yet (`CELEBORN-BLOB-BACKEND-DESIGN.md` §8).
+
+Related worker-side GC lines, for completeness: `Collected unreferenced recovery blob <sha256> for
+<appId>` (normal garbage collection after the grace period) and `Could not determine whether
+recovery blob <hex> is referenced` (the master was unreachable during GC; the blob is kept, which is
+the safe direction).
+
+## 8. Known gaps an operator will hit
 
 - **Orphan output files.** A crashed driver leaves data files for partitions that never published.
   Nothing in the protocol cleans them up today; the global commit marker is the only authoritative

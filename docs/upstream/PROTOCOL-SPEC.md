@@ -187,7 +187,8 @@ Spark calls `load` in bounded batches of **1024** partitions (`MaxLoadBatch` in
 
 ## 5. Celeborn wire protocol
 
-New message types (`common/src/main/proto/TransportMessages.proto`), IDs 97–112:
+New message types (`common/src/main/proto/TransportMessages.proto`), IDs 97–122 (97–112 below; the
+recovery-blob messages 113–122 are specified in the blob section):
 
 | ID | Message | Purpose |
 |---|---|---|
@@ -201,8 +202,9 @@ New message types (`common/src/main/proto/TransportMessages.proto`), IDs 97–11
 | 111/112 | `BatchGetRecoveryTaskCommits` | read many, in request order |
 
 Every request carries `applicationLeaseEpoch` + `applicationLeaseOwnerId`. Replicated state
-(`Resource.proto`) gains four maps: `applicationLeases`, `applicationWorkers`,
-`committedShuffleCatalogs`, `sourceRecoveryAnchors`, `recoveryTaskCommits`.
+(`Resource.proto`) gains five maps: `applicationLeases`, `applicationWorkers`,
+`committedShuffleCatalogs`, `sourceRecoveryAnchors`, `recoveryTaskCommits`, and — with the blob
+backend — `recoveryBlobPointers`.
 
 ### Lease and fencing
 
@@ -244,6 +246,60 @@ ingress/apply/read; the executor-client and snapshot-restore checks are present 
 `BatchGetRecoveryTaskCommitsResponse` returns **exactly one entry per requested partition, in request
 order, including authoritative misses** — matching the `load` contract above without an extra
 round-trip to distinguish miss from omission.
+
+### Recovery blob transport and pointer publication
+
+Implemented across Celeborn commits `05fbdcafe`, `71b879be6` and `67b89066b` (worker-to-worker
+replicate and replicated repair are still uncommitted in-flight work). Design:
+`CELEBORN-BLOB-BACKEND-DESIGN.md`.
+
+New message types (`common/src/main/proto/TransportMessages.proto`):
+
+| ID | Message | Purpose |
+|---|---|---|
+| 113/114 | `PushRecoveryBlob` | executor/client → worker, content-addressed upload |
+| 115/116 | `FetchRecoveryBlob` | read a verified copy from a replica |
+| 117/118 | `PublishRecoveryBlobPointer` | client → master, CAS the pointer after quorum |
+| 119/120 | `GetRecoveryBlobPointer` | read one pointer |
+| 121/122 | `ReplicateRecoveryBlob` | worker → worker, repair replication |
+
+The master's Raft state machine gains two commands (`master/src/main/proto/Resource.proto`):
+`PublishRecoveryBlobPointer = 35` and `RepairRecoveryBlobPointer = 36`. Replicated state gains a
+fifth map, `recoveryBlobPointers`.
+
+**The pointer record** (`PbRecoveryBlobPointer`) is what Raft holds instead of the payload:
+
+```
+appId, recoveryId, writeId, partitionId   // identity, length-delimited key as in §2
+bytes   sha256          // content identity of the payload
+int64   length
+int64   generation      // advances only on repair; digest and length never change
+int32   formatVersion   // pointer record version, NOT the envelope version
+repeated string workerIds
+int64   createdAtMs
+```
+
+**Quorum-before-CAS is the load-bearing ordering.** A worker accepts a blob only after fsync,
+digest re-verification from the written bytes, an atomic rename to `<sha256>.blob`, and a parent-dir
+fsync; content addressing makes re-upload idempotent. Publication proceeds only when at least
+`celeborn.master.recovery.blob.quorum` (default 2) of `replicationFactor` (default 3) workers have
+acknowledged, and only then is the pointer CASed under the lease epoch/owner. The master validates
+identity bounds, digest length, `length > 0`, `workerIds.size >= quorum` and lease ownership before
+applying first-writer-wins. Consequence: **a published pointer can never reference an unreadable
+payload**, which is why a reader can trust Raft alone.
+
+Reads verify length and digest against the pointer on every fetch, fail over to the next listed
+replica on mismatch or loss, and treat exhausted replicas as a **hard failure — never a miss**
+(invariant I-1). Payloads at or under `inlineThreshold` (default 4k) skip blobs entirely and stay
+inline; the blob cap itself is `celeborn.master.recovery.blob.maxPayloadSize` (default 64m), which
+is what narrows the §3 payload-size gap.
+
+Repair (background scan on the leader every `repairInterval`, default 5m) republishes verified bytes
+to enough new workers and CASes an updated pointer with the **same digest** and an incremented
+generation, so repair moves only the replica list. Unreferenced blobs are deleted after
+`orphanGrace` (default 1h); released pointers are tombstoned and replicated before any blob delete.
+The designed remote-storage second tier (`CELEBORN-BLOB-BACKEND-DESIGN.md` §8) is **not
+implemented**; a remote write alone would never satisfy publication quorum anyway.
 
 ### Inline-storage limits (all `master` category, default version `1.0.0`)
 
@@ -387,12 +443,10 @@ Ledger entry encoding: versioned (`IDEMPOTENCY_LEDGER_VERSION = 1`), `DataOutput
 
 ## 9. Known gaps in the protocol as it stands
 
-1. **Inline payload storage in Raft.** Bounded, therefore safe against unbounded memory growth — but
-   not sized for very large production writes. The designed replacement is worker-replicated,
-   content-addressed blobs (SHA-256 as identity, fsync + verify on a durability quorum, only
-   digest/length/generation/locations in Raft, CAS on the pointer, verify on read, async repair, GC
-   of losing speculative blobs after a grace period, tombstone before delete, remote-storage
-   fallback on total worker-set loss). Not implemented.
+1. **Inline payload storage in Raft — superseded by the blob backend, with one tier missing.** The
+   inline store remains for small payloads (≤ 4k) and as a read fallback; large payloads now go to
+   worker-replicated content-addressed blobs with quorum-before-CAS publication (see §5). Still
+   missing: the remote-storage second durability tier.
 2. **Payload-size mismatch** between Spark's 16 MiB envelope cap and Celeborn's 1 MiB default
    ingress cap (§3).
 3. **Iceberg source-snapshot retention.** A pinned snapshot can be expired while the driver is down.
@@ -414,12 +468,13 @@ Ledger entry encoding: versioned (`IDEMPOTENCY_LEDGER_VERSION = 1`), `DataOutput
 | Concern | File |
 |---|---|
 | Envelope format | `spark-resumable-upstream/sql/core/.../datasources/v2/RecoveryTaskCommit.scala` |
-| Store contract | `spark-resumable-upstream/sql/catalyst/.../connector/write/RecoveryTaskCommitStore.java` |
+| Store contract | `spark-resumable-upstream/sql/catalyst/.../connector/recovery/RecoveryTaskCommitStore.java` — moved out of `connector.write` into a new `o.a.s.sql.connector.recovery` package (commit `ace8a2de502`); the remaining recovery interfaces still live in `connector.write` |
 | Connector contract | `.../connector/write/SupportsBatchWriteRecovery.java`, `BatchWriteRecoveryState.java`, `RecoveryCommitMessageCodec.java` |
 | Write execution ordering | `.../datasources/v2/WriteToDataSourceV2Exec.scala` |
 | Shuffle SPI | `spark-resumable-upstream/core/.../shuffle/ShuffleStageRecovery.scala` |
 | Scheduler integration | `core/.../scheduler/DAGScheduler.scala`, `core/.../MapOutputTracker.scala` |
 | Celeborn wire | `celeborn/common/src/main/proto/TransportMessages.proto`, `master/src/main/proto/Resource.proto` |
+| Celeborn blob transport | `celeborn/client/.../recovery/RpcRecoveryBlobTransport.scala`, `RecoveryBlobReplication.scala`, `celeborn/worker/.../RecoveryBlobStore.scala`, `RecoveryBlobCollector.scala` |
 | Celeborn CAS + limits | `celeborn/master/.../clustermeta/AbstractMetaManager.java` |
 | Celeborn identity validation | `celeborn/common/.../util/RecoveryTaskCommitUtils.java` |
 | Celeborn client binding | `celeborn/client/.../LifecycleManager.scala`, `client-spark/spark-3/.../CelebornShuffleStageRecoveryExtension.java` |

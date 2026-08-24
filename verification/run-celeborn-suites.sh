@@ -65,6 +65,8 @@ run_scala_suite client \
 run_scala_suite worker \
   org.apache.celeborn.service.deploy.worker.RecoveryBlobCollectorSuite blobcollector
 run_scala_suite master org.apache.celeborn.service.deploy.master.RecoveryBlobRepairSuite blobrepair
+run_scala_suite master \
+  org.apache.celeborn.service.deploy.master.clustermeta.RecoveryInlineCapacitySuite inlinecapacity
 
 echo
 column -t -s $'\t' "$RESULTS"

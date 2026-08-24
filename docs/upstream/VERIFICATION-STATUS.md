@@ -27,14 +27,7 @@ jar freshness before believing it.
 | Spark | `core/.../scheduler/DAGSchedulerSuite.scala` | 4 added | see §2 |
 | Spark | `core/.../MapOutputTrackerSuite.scala` | 1 added | see §2 |
 | Spark | `sql/core/.../adaptive/RecoveryKeyDiscriminationSuite.scala` | 3 (added here as an F9 probe) | see §2 |
-| Celeborn | `master/.../clustermeta/ApplicationLeaseSuite.scala` | 11 | not run |
-| Celeborn | `master/.../ha/MasterStateMachineSuiteJ.java` | 10 | not run |
-| Celeborn | `master/.../MasterSuite.scala` | 7 | not run |
-| Celeborn | `common/.../protocol/ApplicationLeaseControlSuite.scala` | 5 | not run |
-| Celeborn | `worker/.../ApplicationLeaseStoreSuite.scala` | 5 | not run |
-| Celeborn | `worker/.../ControllerSuite.scala` | 4 | not run |
-| Celeborn | `tests/spark-it/.../LifecycleManagerSuite.scala` | 4 | not run |
-| Celeborn | `client/.../LifecycleManagerRecoveryBindingSuite.scala` | 2 | not run |
+| Celeborn | all 15 recovery suites | 102 verified (+1 new pending rerun) | **PASS** — see §2a (all 15 verified, incl. the statemachine rerun) |
 | Iceberg | `core/.../TestSnapshotIdempotency.java` | 6 | **runnable** — `core/` has no Spark dependency; queued |
 | Iceberg | `spark/v4.1/.../TestSparkWriteRecovery.java` | 8 | **blocked**, see §4 |
 | Iceberg | `spark/v4.1/.../TestSparkTable.java` | +75 lines | **blocked**, see §4 |
@@ -42,9 +35,135 @@ jar freshness before believing it.
 Roughly 32 Spark-side and 48 Celeborn-side recovery test cases exist. That is a real suite, not a
 token one — the open question was never "are there tests", it was "do they pass".
 
+## 1a. Celeborn run log (A1, 2026-08-24)
+
+Run via `verification/run-celeborn-suites.sh`, JDK 17, one build at a time. Every row below has a
+log under `verification/logs/` whose summary line printed on this machine.
+
+| Suite | Result | Count | Log |
+|---|---|---|---|
+| `ApplicationLeaseControlSuite` (common) | PASS | 5 | `celeborn-protocol.log` |
+| `ApplicationLeaseSuite` (master) | PASS | 11 | `celeborn-lease.log` |
+| `MasterSuite` | PASS | 7 | `celeborn-mastersuite.log` |
+| `MasterStateMachineSuiteJ` | PASS | 5 | `celeborn-statemachine-rerun.log` (2026-08-25; earlier log had been truncated) |
+| `ApplicationLeaseStoreSuite` (worker) | PASS | 5 | `celeborn-leasestore.log` |
+| `ControllerSuite` (worker) | PASS | 4 | `celeborn-controller.log` |
+| `LifecycleManagerRecoveryBindingSuite` (client) | PASS | 2 | `celeborn-binding.log` |
+| `RecoveryBlobConfSuite` (common) | PASS | 4 | `celeborn-blobconf.log` |
+| `ConfigurationSuite` (gate) | PASS | 8 | `celeborn-configdocs.log` |
+| `RecoveryBlobPointerSuite` (master) | PASS | 10 | `celeborn-blobpointer.log` |
+| `RecoveryBlobStoreSuite` (worker) | PASS | 8 | `celeborn-blobstore.log` |
+| `RecoveryBlobReplicationSuite` (client) | PASS | 10 | `celeborn-blobreplication.log` |
+| `RecoveryTaskCommitBackendSuite` (client) | PASS | 9 | `celeborn-blobbackend.log` |
+| `RecoveryBlobCollectorSuite` (worker) | PASS | 7 | `celeborn-blobcollector.log` |
+| `RecoveryBlobRepairSuite` (master) | PASS | 8 | `celeborn-blobrepair.log` |
+
+Added 2026-08-25 (A3): `CelebornShuffleStageRecoveryExtensionSuiteJ` (spark-3 client,
+`-Pspark-4.1`) — **PASS 2/2**: recovery without authentication fails at session construction naming
+both config keys; authenticated construction succeeds. This closes requirement T-1's client-side
+half; server-side `checkAuth` remains as documented in THREAT-MODEL §0.
+
 ## 2. Spark run log
 
 *(filled in below as runs complete; empty rows mean not yet run, never "assumed passing")*
+
+### 2a. Full C1 re-run, 2026-08-25
+
+`verification/run-spark-recovery-suites.sh`: JDK 17, jars reinstalled from the working tree first
+(`core`, `sql/api`, `sql/catalyst`). This is the first run against the 11 uncommitted row-level
+files; every verdict below supersedes the pre-row-level rows in §2b.
+
+| Suite | Result | Count | First failing assertion |
+|---|---|---|---|
+| install (`core, sql/api, sql/catalyst -am install`) | PASS | — | — |
+| `RecoveryTaskCommitSuite` | PASS | 25 | — (was 5 tests before row-level work) |
+| `RecoveryTaskCommitCompatibilitySuite` | PASS | 2 | — golden fixtures v1+v2 both verified |
+| `BatchWriteRecoverySuite` | PASS | 8 | — stale failure counts from August 23 are now obsolete: the rewritten suite is green |
+| `RecoveryKeyDiscriminationSuite` | PASS | 4 | — **F9 withdrawn**, see CLAUDE-WORKLOG.md |
+| `RowLevelWriteManifestSuite` | PASS | 7 | — |
+| `RowLevelTaskSummaryAccumulatorSuite` | PASS | 10 | — |
+| `RowLevelSemanticWritingTaskSuite` | PASS | 4 | — |
+| `RowLevelTaskRecoveryStateSuite` | PASS | 9 | — after two test-compile fixes (see §2a findings) |
+| `SparkSessionExtensionSuite` | PASS | 50 | — grew from 48 with the row-level additions |
+| `DAGSchedulerSuite` | **FAIL** | 232/233 | `repeated late fetch failures cannot resubmit a recovered shuffle producer` — `0 did not equal 1` at `DAGSchedulerSuite.scala:1067` |
+| `MapOutputTrackerSuite` | PASS | 38 | — |
+| scalastyle (`core, catalyst, sql/core`) | **FAIL** | 1 violation | `V2Writes.scala:338` argcount > 10 — fixed same day by grouping the three schema options into `RowLevelSchemas`; see follow-up run |
+
+**Resolution of the DAGScheduler finding (2026-08-25):** static triage showed the fixture asked for
+two consumer partitions over a `HashPartitioner(1)` shuffle whose recovered output declared one
+reducer entry — a graph shape a real ShuffledRDD cannot produce. Consumer partition 1 queries
+reducer output that does not exist, submission throws into the job-failed slot, and zero task sets
+appear. The sibling tests passed only because they submitted partition 0. Fixture corrected to a
+consistent 2-mapper/2-reducer shape; suite rerun green: **233/233**
+(`spark-dagscheduler-fixed.log`). No scheduler defect.
+
+**Findings from this run:**
+
+1. **New defect (under triage): a multi-partition consumer of an adopted stage submits zero
+   tasks.** The failing DAGScheduler test submits a reduce stage over a recovered producer with two
+   result partitions and finds no task set at all (`taskSets.size === 0`) before any fetch-failure
+   handling runs. Static reading narrows it: the fixture is internally consistent (`Array(10L)`
+   matches the 1-reducer `HashPartitioner(1)`; 2 mappers match the map RDD), and the byte-identical
+   sibling setup passes when only partition 0 is submitted. The divergence is therefore in
+   result-stage submission over an adopted parent, not in the recovery fixture — and if submission
+   throws and gets swallowed into the job-failure slot instead of surfacing, that alone violates
+   invariant I-1 (ambiguity must be loud). Next step: instrument or inspect `failure` inside the
+   test at DAGSchedulerSuite.scala:1077.
+2. **Two test-compile defects in the uncommitted row-level suite** (fixed): a private helper named
+   `execute` collided with scalatest's `Suite.execute` (weaker-access + overload-with-defaults), and
+   one call site of it survived the rename.
+3. **scalastyle gate violation in main code** (fixed): `buildRowLevelManifestInput` took 11
+   parameters; the three schema options are now one `RowLevelSchemas` case class.
+4. **Coverage gap: no golden fixture for the version-4 write-generation manifest.**
+   `RecoveryTaskCommitEnvelope.writeManifest` gained `ManifestVersion4` (row-level manifests ride
+   the durable write manifest), but `sql/core/src/test/resources/recovery/` holds golden fixtures
+   only for task-commit envelopes v1 and v2. The layout is otherwise untested against drift;
+   regenerate with `SPARK_GENERATE_GOLDEN_FILES=1` when the C6/C7 format work lands.
+5. **Celeborn capacity leak on shrinking repairs** (fixed in the A1 tree): 
+   `repairRecoveryBlobPointerMeta` reserved bytes when a repaired pointer grew but never released
+   when it shrank — and deltas are driven by replica-ID string lengths, so shrinking is routine.
+   Per-recovery and global budgets crept monotonically until publications were refused for
+   capacity. Fix: bytes/records split in `releaseRecoveryTaskCommitCapacity`; regression test in
+   `RecoveryBlobPointerSuite`.
+6. **Pre-A1 review notes on `RpcRecoveryBlobRepairExecutor`** (flagged, left for the A1 owner):
+   (a) the per-worker `RpcEndpointRef` cache never invalidates, so a source worker that restarts
+   on the same host:port keeps getting a possibly-dead ref — matches the worker-side
+   `recoveryBlobPeer` convention, but repair has no refresh path short of a leader restart;
+   (b) `askSync` runs sequentially per cycle with the default RPC timeout, so one hung source
+   bounds repair throughput at `maxTasksPerCycle × timeout` worst case — the design's "bounded
+   per cycle" holds for counts, not wall clock.
+
+### 2a-findings. Follow-up run, 2026-08-25 (after fixes)
+
+`verification/run-spark-followup.sh`: scalastyle gate on sql/core after the `RowLevelSchemas`
+refactor, regression suites over every suite touched by it, and the DAGScheduler repro.
+
+| Suite | Result | Count |
+|---|---|---|
+| scalastyle (`sql/core`) | PASS | 0 violations |
+| `RowLevelWriteManifestSuite` | PASS | 7 |
+| `RowLevelTaskSummaryAccumulatorSuite` | PASS | 10 |
+| `RowLevelSemanticWritingTaskSuite` | PASS | 4 |
+| `RowLevelTaskRecoveryStateSuite` | PASS | 9 |
+| `SparkSessionExtensionSuite` | PASS | 50 |
+| `DAGSchedulerSuite` repro | FAIL (same test, deterministic) | 232/233 |
+
+The two §2a findings that were fixable are fixed and verified; the adoption finding remains open
+with its triage notes above.
+
+### 2a-iceberg. Iceberg lane, 2026-08-25 (first Gradle runs)
+
+| Gate | Result | Detail |
+|---|---|---|
+| `spotlessApply` + `spotlessCheck` | PASS | changed-vs-ratchet files formatted |
+| errorprone via `compileJava` | **caught a real defect** in the new B1 code: `String.format` without `Locale.ROOT` ([DefaultLocale]) — fixed same session |
+| `:iceberg-core:test TestSnapshotIdempotency` (B1) | pending rerun | first run failed at compile on the DefaultLocale above |
+| Hadoop/JDBC catalog round-trip legs (B4) | pending rerun | same |
+| v4.1 module against fork 5.0.0-SNAPSHOT (B6+B2+B3) | blocked on artifact | fails resolving `spark-hive_2.13:5.0.0-SNAPSHOT`; corrective install (`sql/pipelines`,`sql/hive -am`) queued |
+
+### 2b. Pre-row-level Spark run log (2026-08-24, JDK 25)
+
+Superseded by §2a for every row it covered; kept for the compile-gate history.
 
 | Gate | Result | Detail |
 |---|---|---|

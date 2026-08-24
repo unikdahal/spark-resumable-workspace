@@ -11,9 +11,12 @@ outside for now, for reasons stated at the end.
 | `RecoveryTaskCommitSuite` | `sql/core/src/test/scala/.../v2/` | envelope round trip, identity binding, corruption/truncation/trailing bytes, deterministic manifest, invalid connector contracts |
 | `RecoveryTaskCommitCompatibilitySuite` | same | golden-file gate on the version 1 envelope and manifest layouts; regenerate with `SPARK_GENERATE_GOLDEN_FILES=1`, fixture in `sql/core/src/test/resources/recovery/` |
 | `BatchWriteRecoverySuite` | same | five driver-replacement scenarios end to end against a real immutable CAS store |
-| `RecoveryKeyDiscriminationSuite` | `sql/core/src/test/scala/.../adaptive/` | that the material Spark hands a provider can actually discriminate two different stages |
-| `SparkSessionExtensionSuite` (recovery tests) | `sql/core/src/test/scala/org/apache/spark/sql/` | 19 provider-level tests: adoption before map submission, fail-closed rollback, anchors, write IDs, partition skipping, preflight, discard |
+| `RecoveryKeyDiscriminationSuite` | `sql/core/src/test/scala/.../adaptive/` | that the material Spark hands a provider can actually discriminate two different stages — settled 2026-08-25: keys discriminate past truncation, F9 withdrawn |
+| `RowLevelWriteManifestSuite`, `RowLevelTaskSummaryAccumulatorSuite`, `RowLevelSemanticWritingTaskSuite`, `RowLevelTaskRecoveryStateSuite` | `sql/core/src/test/scala/.../v2/` | the row-level generation manifest, semantic action interpretation, per-task summaries, and recovery arbitration — see `ROW-LEVEL-RECOVERY-DESIGN.md` |
+| `SparkSessionExtensionSuite` (recovery tests) | `sql/core/src/test/scala/org/apache/spark/sql/` | provider-level tests: adoption before map submission, fail-closed rollback, anchors, write IDs, partition skipping, preflight, discard |
 | `DAGSchedulerSuite`, `MapOutputTrackerSuite` | `core/src/test/scala/...` | scheduler-side recovery installation and statistics |
+| `CelebornShuffleStageRecoveryExtensionSuiteJ` | `celeborn/client-spark/spark-3/src/test/java/...` | auth precondition: recovery without authentication fails at construction naming both config keys; authenticated construction succeeds |
+| `TestSnapshotIdempotency` / `CatalogTests` ledger round-trip | `oss-fixes/iceberg/core/src/test/java/...` | Iceberg ledger: races, retry, corruption, horizon-vs-recovery-window boundary, and property survival through Hadoop/JDBC/Hive/REST catalogs |
 | `RecoveryTaskCommitBenchmark` | `sql/core/src/test/scala/.../benchmark/` | durable bytes per partition, encode/decode throughput, the driver-side batched load |
 
 Run one suite the way Spark runs any suite:

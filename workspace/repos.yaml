@@ -1,0 +1,110 @@
+# Independent repositories used by this workspace.
+# This file is the pin list. The checkouts themselves are not gitlinks and are
+# not part of this repository's source tree.
+#
+# Clone defaults: workspace/bootstrap.sh clones role: active-upstream only.
+# Historical POCs and archived-research checkouts stay on GitHub; their local
+# checkouts were removed 2026-08-25 and can be restored from the pins below.
+
+repos:
+  - id: spark
+    url: https://github.com/unikdahal/spark.git
+    upstream: https://github.com/apache/spark.git
+    commit: ace8a2de502a727cd41126c560e9b18827ff421e
+    branch: resumable-driver-upstream
+    local_path: spark-resumable-upstream
+    role: active-upstream
+    status: wip
+    notes: Canonical Spark fork. Scheduler recovery SPI, recovered MapStatuses, V2 write recovery.
+
+  - id: celeborn
+    url: https://github.com/unikdahal/celeborn.git
+    upstream: https://github.com/apache/celeborn.git
+    commit: 67b89066b418c37dae9e3ff3a03cdf011f33274d
+    branch: resume-adoption-patch10
+    local_path: celeborn
+    role: active-upstream
+    status: wip
+    notes: Canonical Celeborn fork. Application lease, committed shuffle catalog, recovery bindings, blob backend.
+
+  - id: iceberg
+    url: https://github.com/unikdahal/iceberg.git
+    upstream: https://github.com/apache/iceberg.git
+    commit: bd62d57a0624457d35e3b57dc34a7519659dd454
+    branch: supports-snapshot-id
+    local_path: oss-fixes/iceberg
+    role: active-upstream
+    status: wip
+    notes: Canonical Iceberg fork. Snapshot idempotency ledger and Spark write-recovery pins.
+
+  - id: spark-resume
+    url: https://github.com/unikdahal/spark-resume.git
+    commit: 31663b198a693dc2785afb503b46b137b2515bf2
+    branch: main
+    local_path: spark-resume
+    role: reference-implementation
+    status: complete-as-reference
+    notes: Standalone library (ExecutionSkipRule / SkippedExchangeExec). Valuable, not the upstream path.
+
+  - id: spark-3.5-adoption
+    url: https://github.com/unikdahal/spark.git
+    commit: a7b2868f1089f6cf5761da53381fd31dd33dbf85
+    branch: resume-adoption-spark-core
+    local_path: spark
+    role: archived-research
+    status: archived
+    notes: Earlier Spark 3.5 adoption checkout. Do not confuse with spark-resumable-upstream.
+
+  - id: celeborn-read-partition
+    url: https://github.com/unikdahal/celeborn.git
+    commit: 7e3e4ecc423e98f240f1f9dc5a03fc68551d96c0
+    branch: cross-identity-read-partition
+    local_path: oss-fixes/celeborn
+    role: archived-research
+    status: archived
+    notes: Isolated Celeborn readPartition identity patch that predates the current recovery catalog.
+
+  - id: resume-poc
+    url: https://github.com/unikdahal/resume-poc.git
+    commit: 08498f751e847b582ac3d6a7e53314353ff77aee
+    branch: main
+    local_path: resume-poc
+    role: archived-research
+    status: archived
+    notes: Proved a second driver can skip map tasks and consume the first driver's Celeborn bytes.
+
+  - id: resume-poc-digest
+    url: https://github.com/unikdahal/resume-poc-digest.git
+    commit: e5080d55fa2c06e8c65c4260d58154c0c019bfbd
+    branch: main
+    local_path: resume-poc-digest
+    role: archived-research
+    status: archived
+    notes: Cross-JVM fingerprints and connector-aware input identity. Source of the fail-closed invariant.
+
+  - id: resume-poc-sql
+    url: https://github.com/unikdahal/resume-poc-sql.git
+    commit: 8571253768038355e58dbb14a67829f1b6ca426c
+    branch: main
+    local_path: resume-poc-sql
+    role: archived-research
+    status: archived
+    notes: SQL/AQE/DPP/broadcast/write demos. Research evidence, not production code.
+
+  - id: resume-poc-e2e
+    url: https://github.com/unikdahal/resume-poc-e2e.git
+    commit: 1a5f581ec19a6cc69b97a6f381881d66388574f7
+    branch: main
+    local_path: resume-poc-e2e
+    role: archived-research
+    status: archived
+    notes: Combined identity + AQE + Celeborn + second JVM. Exposed stats/commit-timing bugs that survive into the upstream design.
+
+  - id: datafusion-comet
+    url: https://github.com/apache/datafusion-comet.git
+    commit: e975f1383cd79e818287d1807e6e534df7559311
+    branch: main
+    local_path: datafusion-comet-resumable-upstream
+    role: inactive
+    status: omitted
+    notes: Ordinary Comet commit, no resumable-execution work. Not cloned by default.

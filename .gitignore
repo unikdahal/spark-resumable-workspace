@@ -10,6 +10,18 @@ out/
 dist/
 **/dist/
 
+# Independent checkouts — pinned in workspace/repos.yaml, never gitlinks
+/celeborn/
+/spark/
+/spark-resumable-upstream/
+/spark-resume/
+/resume-poc/
+/resume-poc-digest/
+/resume-poc-e2e/
+/resume-poc-sql/
+/datafusion-comet-resumable-upstream/
+/oss-fixes/
+
 # Logs & temporary files
 *.log
 **/*.log
@@ -19,6 +31,8 @@ dist/
 **/*.swp
 *~
 **/*~
+.claude/
+verification/logs/
 
 # Heavy Archives & Jars
 *.jar
@@ -49,4 +63,3 @@ dist/
 # Node
 node_modules/
 **/node_modules/
-verification/logs/.verification.lock

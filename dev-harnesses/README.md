@@ -1,7 +1,8 @@
 # Development harnesses
 
-Neither of these is merge material. They exist because two things cannot be expressed inside a
-project's own test suite, and both will be retired once their merge-path equivalents exist.
+These stay in this workspace. They are not merge material for Spark or Celeborn. They exist
+because two things cannot be expressed inside a project's own test suite, and both will be
+retired once their merge-path equivalents exist.
 
 | Harness | Why it still exists | Merge-path equivalent |
 |---|---|---|

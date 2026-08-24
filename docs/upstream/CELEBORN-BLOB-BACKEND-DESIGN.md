@@ -1,8 +1,9 @@
 # Design: worker-replicated storage for recovery task payloads (work package C2)
 
-Status: design, not implemented. Written against `celeborn` as of 2026-08-24. This is the design the
-implementation will be built and reviewed against; the acceptance criteria at the end are the ones
-in `RESUMABLE-SPARK-HANDOFF-AND-ROADMAP.md` §6 C2.
+Status: **implemented** in `celeborn` commits `05fbdcafe`, `71b879be6`, `67b89066b`, with
+worker-to-worker replicate and replicated repair in flight (see `VERIFICATION-STATUS.md`). This is
+the design the implementation was built against; deviations from it are noted inline. Written
+against `celeborn` as of 2026-08-24.
 
 ## 1. Why the inline store is not the end state
 
