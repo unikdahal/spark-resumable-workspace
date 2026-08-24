@@ -169,3 +169,24 @@ digest, before Celeborn's protobuf framing), `totalDurableMiB` is what a recover
 occupy in replicated master state, and `batchLoadMs` is what every replacement driver pays before it
 can schedule anything — the bounded 1024-partition batched load, including decode. Run it before
 quoting §3 in a proposal; measured numbers are the ones a reviewer will ask for.
+
+
+## Mapping to the integration contract
+
+`RESUMABLE-SPARK-HANDOFF-AND-ROADMAP.md` §9 states the TTL ordering as a contract neither owner may
+change alone:
+
+> Iceberg source pin and global idempotency proof live longer than Celeborn recoverable task state,
+> with a documented safety margin.
+
+That is invariants R-1 and R-2 above, with one gap and one number attached:
+
+| Contract clause | State here |
+|---|---|
+| Iceberg global idempotency proof outlives Celeborn task state | holds by default (7 days vs a 10m lease); breaks if the lease is raised toward its 24h cap while the ledger horizon is lowered |
+| Iceberg **source pin** outlives Celeborn task state | **not implementable yet** — no recovery tag exists, so the pinned snapshot has no protected lifetime at all (work package C5) |
+| Documented safety margin | proposed: ledger horizon >= 4x the maximum grantable lease, i.e. >= 96h when `applicationLease.maxDuration` is left at 24h |
+
+Until C5 lands, the honest operational statement is: **the recovery window is bounded by the
+lease, and source-snapshot availability is bounded by whatever the table's expiry policy happens to
+be.** The second bound is not under the protocol's control.

@@ -42,7 +42,16 @@ Two implementation details that are easy to get wrong and are therefore worth kn
 
 ## Celeborn
 
-48 recovery test cases across 8 suites already live in the Celeborn tree (lease transitions and
+`CelebornDriverRecoverySuite` in `tests/spark-it` is the two-driver integration test, written in
+that module's conventions (`AnyFunSuite with SparkTestBase`, mini cluster from `MiniClusterFeature`,
+`ShuffleClient.reset()` between tests). It runs the workload in one `SparkSession`, stops it, waits
+out the ownership lease, and runs the same workload in a second session that shares only Celeborn's
+durable state — then asserts that at least one stage completed having run **zero** tasks and that
+the result matches the uninterrupted run. A second test asserts that a different recovery identity
+adopts nothing. The lease is 5s in the test for the reason described in `RETENTION-AND-SIZING.md`:
+takeover cannot happen while the previous lease is valid.
+
+48 further recovery test cases across 8 suites already live in the Celeborn tree (lease transitions and
 fencing, snapshot survival, task-commit integrity and first-writer-wins, identity ambiguity,
 aggregate bounds, anchor immutability, catalog validation and replay, application-loss cleanup, HA
 state-machine replay, worker lease store, client binding). The two-driver integration test belongs in

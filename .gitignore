@@ -49,3 +49,4 @@ dist/
 # Node
 node_modules/
 **/node_modules/
+verification/logs/.verification.lock

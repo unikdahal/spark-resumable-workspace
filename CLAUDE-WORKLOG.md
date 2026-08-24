@@ -390,3 +390,181 @@ The machine has JDK 17 and 21 under sdkman, so Celeborn and Iceberg runs now pin
 harness run for that reason, not because the protocol failed: Spark never retried the task, so the
 executor preflight never ran. The fix is `local[2, 4]`, and it applies to any test of a
 retry-dependent recovery path. Worth knowing before someone concludes the preflight does not work.
+
+## Standardization pass, continued
+
+**Celeborn integration test, in the module that exists for it.**
+`celeborn/tests/spark-it/src/test/scala/org/apache/celeborn/tests/spark/CelebornDriverRecoverySuite.scala`
+follows that module's conventions exactly: `AnyFunSuite with SparkTestBase`, the mini cluster from
+`MiniClusterFeature`, `ShuffleClient.reset()` between tests, `updateSparkConf(...)` for the shuffle
+manager and master endpoints. Two tests: a replacement driver adopts a committed shuffle stage (at
+least one stage completes with **zero** tasks, and the result equals the uninterrupted run), and a
+different recovery identity adopts nothing. The shell cluster harness stays in `dev-harnesses/` only
+for the case this cannot do: killing a real driver process.
+
+**Spark benchmark, in Spark's benchmark form.**
+`sql/core/src/test/scala/.../benchmark/RecoveryTaskCommitBenchmark.scala` extends `BenchmarkBase`
+with the standard "To run this benchmark" header, so results land in
+`sql/core/benchmarks/RecoveryTaskCommitBenchmark-results.txt` like every other Spark benchmark.
+
+**Envelope compatibility, in Spark's golden-file form.**
+`RecoveryTaskCommitCompatibilitySuite` reads a checked-in fixture from
+`sql/core/src/test/resources/recovery/` and regenerates it with `SPARK_GENERATE_GOLDEN_FILES=1`, the
+same convention the rest of Spark uses for golden files.
+
+## Edits to codex-owned files, and exactly what each one is
+
+Three so far, all style or compile gates, none semantic:
+
+1. `sql/catalyst/.../analysis/RecoveryAnchorResolver.scala` — one import moved so the block is
+   alphabetical. Required by `scalastyle:check`, which Spark's PR gate runs.
+2. `sql/core/.../datasources/v2/V2Writes.scala` — reflowed one comment line to fit 100 characters,
+   added explicit return types to the nine public methods of `RecoveryRequiredBatchWrite`, and added
+   the three imports those types need (`BatchWriteRecoveryState`, `DataWriterFactory`,
+   `RecoveryCommitMessageCodec`). Ten scalastyle violations, all in that file, all mechanical.
+3. `oss-fixes/iceberg/core/.../SnapshotProducer.java` and its test — renamed `snapshotID` to
+   `snapshotId` (8 occurrences in main, and in `TestSnapshotIdempotency`). See F14.
+
+## Findings from the standardized runs
+
+**F14 — Iceberg's own build gate rejects the ledger code.** `:iceberg-core:compileJava` fails with
+`[InconsistentCapitalization] Found the field 'snapshotId' with the same name as the parameter
+'snapshotID' but with different capitalization` at `SnapshotProducer.java:840`. Iceberg runs
+errorprone with that check at error severity, so the idempotency ledger **does not compile** in the
+project it targets. Fixed by renaming to `snapshotId`, which is also Iceberg's own naming everywhere
+else. Nothing about the logic changed.
+
+**F15 — CONFIRMED and fixed. Celeborn's master module did not compile.**
+`MetaHandler.java:120: incompatible types: PbPublishRecoveryTaskCommitRequest cannot be converted to
+PublishRecoveryTaskCommitRequest`. But `Resource.proto` defines `PublishRecoveryTaskCommitRequest`
+without the `Pb` prefix, and the generated `ResourceProtos.java` in `master/target` now declares the
+getter with that exact non-prefixed type. That pattern — source and generated code agreeing while
+the compile disagrees — is the same shape as F1 (stale artifacts), so the module is being rebuilt
+from clean before this is called a defect. **Not yet a finding against the code.**
+
+**Toolchain, restated because it cost a whole pass:** Spark builds on JDK 25; Celeborn does not
+(`sun.misc.Signal`); Iceberg's gradle build does not either. Celeborn and Iceberg runs now pin
+JDK 21 from sdkman. Under JDK 25 every Celeborn suite failed with zero tests executed, which is
+indistinguishable at a glance from the code being broken.
+
+## Ownership handoff accepted (RESUMABLE-SPARK-HANDOFF-AND-ROADMAP.md)
+
+From this point the split in that document governs:
+
+- **Claude owns `celeborn` and `oss-fixes/iceberg` only** — implementation, tests, and their docs
+  (work packages C1-C7, ~65%).
+- **Codex owns `spark-resumable-upstream`** and the handoff document (X1-X5).
+- Cross-repo API changes are proposed in writing; Codex freezes the Spark contract and publishes an
+  API jar, then Claude adapts Celeborn/Iceberg.
+
+Build constraints tightened accordingly, and now followed: `taskset -c 0,1`, `-T 1`,
+`MAVEN_OPTS='-XX:ActiveProcessorCount=2'`, gradle `--max-workers=2`, **JDK 17** from
+`/home/unik/.sdkman/candidates/java/17.0.11-tem`, one repository build at a time. (My earlier runs
+used one core and JDK 21/25; that is superseded.)
+
+### Spark-side work done before the split, now Codex's to own
+
+I stop editing Spark. What is in that tree from my side, for X1 to review or discard:
+
+| File | What it is | Last known state |
+|---|---|---|
+| `sql/core/src/test/.../v2/BatchWriteRecoverySuite.scala` | 5 driver-replacement scenarios against a real link(2)-based CAS store | **4 of 5 failing** — see below |
+| `sql/core/src/test/.../v2/RecoveryTaskCommitCompatibilitySuite.scala` + `src/test/resources/recovery/task-commit-envelope-v1.txt` | golden-file gate on the v1 envelope/manifest layout | **PASS**, fixture recorded and verified |
+| `sql/core/src/test/.../benchmark/RecoveryTaskCommitBenchmark.scala` | `BenchmarkBase` benchmark for durable bytes/partition and the batched load | not yet run |
+| `sql/core/src/test/.../adaptive/RecoveryKeyDiscriminationSuite.scala` | probe for whether plan-string-derived recovery keys discriminate (F9) | **3 failing**, and see the F9 correction above — the finding is still unproven |
+| `V2Writes.scala`, `RecoveryAnchorResolver.scala` | scalastyle fixes only (import order, explicit return types, one comment reflow) | **`scalastyle:check` now PASSES** on core, catalyst and sql/core |
+
+`BatchWriteRecoverySuite` at 4/5 failing is *not* evidence the protocol is broken — it is a new
+suite whose fixtures have not been debugged; `local[2, 4]` fixed one cause (F13) and the rest are
+unexamined. Codex should treat it as unproven scaffolding, not as a red gate.
+
+### Where C1/C4 stand right now
+
+- **Iceberg `TestSnapshotIdempotency`: PASS** (`BUILD SUCCESSFUL in 2m 53s`) after the errorprone
+  fix in F14. That is the first real green on the Iceberg ledger, and it is C4 task 2 done.
+- **Celeborn:** `ApplicationLeaseControlSuite` 5/5 and `LifecycleManagerRecoveryBindingSuite` 2/2
+  pass. `master`-module suites still fail to compile (F15); a clean rebuild under JDK 17 with the
+  prescribed CPU cap is running now to settle whether that is stale generated code or a real defect.
+
+### C1 progress
+
+**F16 — Celeborn's format gate rejects the recovery code.** The first capped clean build failed
+before compiling anything: `spotless:check` reported google-java-format violations in
+`common/src/main/java/org/apache/celeborn/common/util/RecoveryTaskCommitUtils.java` (a message
+concatenation split across three lines that fits on one). Celeborn's build runs spotless in the
+default lifecycle, so this fails any `mvn test` on `celeborn-common`, not just a style job.
+Fixed the standard way, `./build/mvn -pl common,master,worker,client -am spotless:apply`, which
+reformatted three files: `RecoveryTaskCommitUtils.java`, `CelebornConf.scala`, and
+`ApplicationLeaseControlSuite.scala`. Formatting only — no statement changed.
+
+This is the Celeborn analogue of the Spark scalastyle finding and the Iceberg errorprone finding
+(F14): each project's own gate rejected the recovery code, and none of those gates had been run.
+
+### F15 resolved: a real type error, not stale artifacts
+
+A clean rebuild under JDK 17 reproduced it, so the stale-artifact hypothesis was wrong.
+`MetaHandler.handleWriteRequest(PbMetaRequest request)` declared the local as the master's
+`ResourceProtos.PublishRecoveryTaskCommitRequest` while `PbMetaRequest.getPublishRecoveryTaskCommitRequest()`
+returns `PbPublishRecoveryTaskCommitRequest` from `common`. The three neighbouring cases in the same
+switch (`PublishCommittedShuffleCatalog`, `ResolveSourceRecoveryAnchor`, `ApplicationLease`) all use
+the `Pb*` type correctly; this one case was inconsistent. Fixed by using the `Pb*` type. The whole
+`celeborn-master` module could not compile, which is exactly why every master suite reported
+"0 tests run" in earlier passes.
+
+**F17 — the HA state-machine suite never compiled either.**
+`MasterStateMachineSuiteJ` referenced `statusSystem.getSourceRecoveryAnchor(...)` and
+`statusSystem.getRecoveryTaskCommit(...)`, but no `statusSystem` symbol exists in that suite or in
+`RatisBaseSuiteJ`, which keeps the `HAMasterMetaManager` as a **local variable inside `init()`** and
+exposes only `ratisServer`. Fixed in the base suite's own style: the manager is now a
+package-private `metaSystem` field assigned in `init()`, and the three call sites use it. Its six
+tests — snapshot take/install, wire compatibility and conflict rejection, transport-message replay,
+serde — have therefore never executed before now.
+
+### Gates that had never been run against this code
+
+| Project | Gate | Result before | Fixed |
+|---|---|---|---|
+| Spark | `scalastyle:check` | 11 violations | yes, now passes |
+| Iceberg | errorprone (`:iceberg-core:compileJava`) | `core` did not compile (F14) | yes, ledger tests now pass |
+| Celeborn | `spotless:check` | violations block any `mvn test` on `common` (F16) | yes |
+| Celeborn | main `javac` | `master` module did not compile (F15) | yes |
+| Celeborn | test `javac` | HA suite did not compile (F17) | yes |
+
+None of these fixes changed a statement of logic.
+
+### C2 design delivered
+
+`docs/upstream/CELEBORN-BLOB-BACKEND-DESIGN.md` specifies the worker-replicated, content-addressed
+payload store that replaces inline Raft storage: pointer record layout (~150-250 bytes per partition
+regardless of payload size), write path with fsync-verify-rename and a durability quorum before the
+pointer CAS, read path with replica failover and the absent-pointer/unreadable-payload distinction,
+leader-change safety, repair that never changes a digest, tombstone-before-delete GC with an orphan
+grace period, remote-storage fallback, nine configuration keys, the metric set, a twelve-row failure
+matrix, and a non-draining migration path. That is the design the implementation will be reviewed
+against.
+
+## Cross-repository observation: Codex has started X1 (read-only note)
+
+Observed in `spark-resumable-upstream` (not touched by me):
+
+- `RecoveryTaskCommitStore` **moved** from `o.a.s.sql.connector.write` to a new
+  `o.a.s.sql.connector.recovery` package.
+- New APIs added: `SupportsTransactionRecovery`, `TransactionRecovery{Info,Result,State}`,
+  `RecoveryDeltaWriter{,Factory}`, `SupportsDeltaBatchWriteRecovery`, `SupportsRecoveryTaskMetrics`,
+  `RecoveryTaskMetric{Descriptor,Schema}` — i.e. the row-level and transaction framework from X2.
+- `dev/create-recovery-api-artifact.sh` and `dev/recovery-api-public-classes.txt` exist, so the
+  frozen API jar from X1 step 8 is being prepared.
+- `MapStatus.scala` and `KryoSerializer.scala` were modified, plus a new
+  `RecoveredShuffleStatusBenchmark`.
+
+**Impact on my repositories: none so far.** Checked, rather than assumed:
+
+- Celeborn has **zero** compile-time references to any Spark recovery class — the extension reaches
+  the SPI entirely through reflection, so a package move cannot break it.
+- Iceberg references exactly three of them (`RecoveryDataWriter`, `RecoveryDataWriterFactory`,
+  `RecoveryCommitMessageCodec`), all of which are still in `connector.write`.
+
+What *does* need updating once the API is frozen: my documentation quotes the old package path for
+`RecoveryTaskCommitStore` in `PROTOCOL-SPEC.md`, `CONFIG-AND-ENABLEMENT.md` and `TEST-STRATEGY.md`.
+I will re-point those at the published class list rather than at what I read today, since the
+contract says the jar and checksum are the authority.

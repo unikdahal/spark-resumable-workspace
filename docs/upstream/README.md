@@ -5,6 +5,11 @@ Written against the working tree on 2026-08-24. These documents describe the **u
 `../LLD-resumable-spark-driver.md` and `../OSS-PROJECT-DESIGN.md` describe. The two tracks solve the
 same problem with different mechanisms; do not read one as documentation for the other.
 
+Ownership, per `RESUMABLE-SPARK-HANDOFF-AND-ROADMAP.md` §5: Celeborn and Iceberg material here is
+maintained by Claude; the Spark-side proposal and the Spark half of the protocol spec describe code
+Codex owns and should be treated as a reader's map, not as a specification Claude may change
+unilaterally. Cross-repository contract changes go through the written proposal path in §5.
+
 Ground rule for every file here: a statement is either traceable to source that was read, or to a
 test run that happened, or it is marked as unverified. Nothing is restated from a status report.
 
@@ -19,6 +24,7 @@ test run that happened, or it is marked as unverified. Nothing is restated from 
 | `TEST-STRATEGY.md` | you want to know where every test lives, how to run it, and what it does and does not model |
 | `RUNBOOK.md` | you are operating a resumable job: preflight checks, how to tell whether anything was recovered, and what each failure string means |
 | `VERIFICATION-STATUS.md` | you want to know what has actually been run, as opposed to written |
+| `CELEBORN-BLOB-BACKEND-DESIGN.md` | you are implementing or reviewing the scalable replacement for inline task-payload storage |
 | `PATCH-SPLIT-PLAN.md` | you are preparing pull requests |
 | `SPARK-SPIP-RESUMABLE-EXECUTION.md` | the Spark-side proposal |
 | `CELEBORN-CIP-DRIVER-RECOVERY.md` | the Celeborn-side proposal |

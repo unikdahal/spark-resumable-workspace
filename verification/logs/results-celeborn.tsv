@@ -1,6 +1,1 @@
-celeborn:lease	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
-celeborn:protocol	PASS	Total number of tests run: 5 Tests: succeeded 5, failed 0, canceled 0, ignored 0, pending 0 
-celeborn:leasestore	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
-celeborn:binding	PASS	Total number of tests run: 2 Tests: succeeded 2, failed 0, canceled 0, ignored 0, pending 0 
-celeborn:mastersuite	FAIL	rc=1 Total number of tests run: 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 
-celeborn:statemachine	FAIL	rc=1 see /home/unik/Coding/spark/verification/logs/celeborn-statemachine.log
+celeborn:protocol	PASS	Total number of tests run: 0 Total number of tests run: 5 

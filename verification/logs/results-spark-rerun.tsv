@@ -1,0 +1,5 @@
+spark:golden-fixture	RECORDED	generated task-commit-envelope-v1.txt
+spark:envelope-compat	PASS	Total number of tests run: 1 
+spark:write-recovery	FAIL	rc=1 Total number of tests run: 5 *** 4 TESTS FAILED *** 
+spark:recovery-key	FAIL	rc=1 Total number of tests run: 3 
+spark:scalastyle	PASS	core, catalyst, sql/core
