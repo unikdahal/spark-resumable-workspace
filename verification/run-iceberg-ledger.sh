@@ -37,6 +37,9 @@ echo "JDK: $(java -version 2>&1 | head -1)"
 run_gradle ledger "$LOGS/iceberg-ledger.log" \
   :iceberg-core:test --tests 'org.apache.iceberg.TestSnapshotIdempotency'
 
+run_gradle recovery-pins "$LOGS/iceberg-recovery-pins.log" \
+  :iceberg-core:test --tests 'org.apache.iceberg.util.TestRecoveryPins'
+
 # Snapshot-producer behaviour the ledger rides on; a regression here would show up as a ledger
 # failure with a misleading cause.
 run_gradle snapshot-producer "$LOGS/iceberg-snapshot-producer.log" \

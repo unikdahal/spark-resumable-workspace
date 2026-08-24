@@ -1,1 +1,3 @@
-iceberg:ledger	PASS	BUILD SUCCESSFUL in 2m 53s 
+iceberg:ledger	PASS	BUILD SUCCESSFUL in 2m 7s 
+iceberg:recovery-pins	PASS	BUILD SUCCESSFUL in 20s 
+iceberg:snapshot-producer	PASS	BUILD SUCCESSFUL in 25s 

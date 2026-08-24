@@ -568,3 +568,53 @@ What *does* need updating once the API is frozen: my documentation quotes the ol
 `RecoveryTaskCommitStore` in `PROTOCOL-SPEC.md`, `CONFIG-AND-ENABLEMENT.md` and `TEST-STRATEGY.md`.
 I will re-point those at the published class list rather than at what I read today, since the
 contract says the jar and checksum are the authority.
+
+## C5 started: Iceberg recovery pins (independent of the Spark API)
+
+`core/src/main/java/org/apache/iceberg/util/RecoveryPins.java` plus
+`core/src/test/java/org/apache/iceberg/util/TestRecoveryPins.java`.
+
+The gap this closes, restated from `RETENTION-AND-SIZING.md` R-2: selecting a snapshot ID is not
+enough, because ordinary expiration can delete that snapshot while the driver is down. Correctness
+already fails closed; availability does not survive. A pin is a deterministic Iceberg **tag** that
+holds the selected snapshot for a bounded time.
+
+Design decisions, all of them testable without Spark:
+
+- **Name derivation is length-delimited before hashing.** `sha256(len:recoveryId + len:sourceId)`,
+  hex, prefixed `recovery-`. The same identity pair always yields the same tag in every driver
+  incarnation, and no pair can produce another pair's name. There is a test for exactly the
+  collision a naive concatenation would produce (`("a","bc")` vs `("ab","c")`).
+- **Pinning is idempotent, and never moves.** Re-pinning the same snapshot succeeds; pinning a
+  *different* snapshot under an existing pin throws. A pin that could move forward would silently
+  change what a resumed execution reads, which is the one failure this whole mechanism exists to
+  prevent.
+- **Maximum reference age extends but never shortens.** Two drivers racing with different windows
+  converge on the longer one, so a short-lived retry cannot shorten the protection an earlier
+  driver established.
+- **Concurrent creation is expected, not exceptional.** Two drivers resuming the same execution will
+  both try to create the pin; the loser refreshes and validates that the winner's pin points at the
+  same snapshot, and only then succeeds.
+- **`verify` fails closed** on a missing pin, a branch where a tag is required, a pin pointing
+  elsewhere, or a pinned snapshot that is gone.
+- **`release` is best effort by design** — an abandoned pin is bounded by its maximum reference age.
+
+The load-bearing test is `expirationCannotRemoveAPinnedSnapshot`: append, pin, append again, expire
+everything older than now, and assert the pinned snapshot survives and still verifies. That is the
+R-2 gap, demonstrated rather than asserted in prose.
+
+What still needs Codex: the execution recovery identity has to reach the connector during source
+anchoring, which is a Spark-side API question (C5 task 1). The pin lifecycle itself does not wait
+for it.
+
+## C1 finding: one MasterSuite test asserted the wrong rejection
+
+`application lease RPC acquires, renews, and rejects a competing stale owner` expected
+`"Stale application lease transition"` when driver-2 attempts a takeover while driver-1's lease is
+still valid. The master actually answers `"Application logical-app is still leased to driver-1"`,
+because the ownership guard fires before any epoch arithmetic — which is the correct behaviour and
+the stronger one. The test was asserting a message from the other rejection path.
+
+Updated to cover both paths explicitly: a competing owner during a live lease is refused on
+ownership, and the *current* owner presenting the wrong epoch is refused by the replicated state
+machine as a stale transition. 6 of the 7 MasterSuite tests already passed; this was the seventh.

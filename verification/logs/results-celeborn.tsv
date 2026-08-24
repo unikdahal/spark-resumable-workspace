@@ -1,2 +1,7 @@
 celeborn:protocol	PASS	Total number of tests run: 0 Total number of tests run: 5 
 celeborn:lease	PASS	Total number of tests run: 0 Total number of tests run: 11 
+celeborn:mastersuite	FAIL	rc=1 Total number of tests run: 0 Total number of tests run: 7 
+celeborn:statemachine	PASS	[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
+celeborn:leasestore	PASS	Total number of tests run: 0 Total number of tests run: 5 
+celeborn:controller	PASS	Total number of tests run: 0 Total number of tests run: 4 
+celeborn:binding	PASS	Total number of tests run: 0 Total number of tests run: 2 
