@@ -38,7 +38,7 @@ build_celeborn_classpaths "$WORK" || { log "celeborn build failed, see $WORK/cel
 ( cd "$HERE" && taskset -c 0 "$SPARK_MVN" -q -T 1 -DskipTests package ) || exit 1
 taskset -c 0 "$SPARK_MVN" -q -f "$HERE/pom.xml" dependency:build-classpath \
   -Dmdep.outputFile="$WORK/harness-cp.txt" >/dev/null || exit 1
-CP="$HERE/target/classes:$(cat "$WORK/harness-cp.txt"):$CELEBORN_DIR/client-spark/spark-3/target/classes:$CELEBORN_DIR/client/target/classes:$CELEBORN_DIR/common/target/classes"
+CP="$HERE/target/classes:$(cat "$WORK/harness-cp.txt"):$CELEBORN_DIR/client-spark/common/target/classes:client-spark/spark-3/target/classes:$CELEBORN_DIR/client/target/classes:$CELEBORN_DIR/common/target/classes"
 
 log "starting a 3-master HA ensemble and 2 workers"
 start_masters "$WORK" "$CONF" "$LOGS" || exit 1
