@@ -167,3 +167,7 @@ inside the same files. Planned split when it lands:
 
 Each commit message follows rule 7 of `TODO.md`: what changed, why the alternative was rejected,
 `Co-Authored-By` and `Claude-Session` trailers.
+### Session deltas
+- 2026-08-25 (harness): E2 two-driver harness made runnable — sibling-repo path fixes,
+  JDK pin in cluster.sh/probe, driver classpath completed with client-spark/common
+  (ExecutorShuffleIdTracker), auth enabled end-to-end (conf + job) per A3 precondition.
