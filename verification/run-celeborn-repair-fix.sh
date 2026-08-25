@@ -11,7 +11,6 @@ export PATH="$JAVA_HOME/bin:/usr/local/bin:/usr/bin:/bin"
 
 exec 9>"$LOGS/.verification.lock"
 flock 9
-while pgrep -a java 2>/dev/null | grep -q 'classworlds\|GradleDaemon'; do sleep 20; done
 
 record() { printf '%s\t%s\t%s\n' "$1" "$2" "$3" | tee -a "$RESULTS"; }
 

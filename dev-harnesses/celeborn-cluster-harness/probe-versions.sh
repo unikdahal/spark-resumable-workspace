@@ -4,8 +4,11 @@
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-CELEBORN="$HERE/../celeborn"
-SPARK="$HERE/../spark-resumable-upstream"
+CELEBORN="$HERE/../../celeborn"
+SPARK="$HERE/../../spark-resumable-upstream"
+JAVA_HOME="${JAVA_HOME:-/home/unik/.sdkman/candidates/java/17.0.11-tem}"
+export JAVA_HOME
+export PATH="$JAVA_HOME/bin:/usr/local/bin:/usr/bin:/bin"
 LOGS="${LOGS_DIR:-$HERE/logs}"
 mkdir -p "$LOGS"
 

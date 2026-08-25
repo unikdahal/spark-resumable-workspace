@@ -37,19 +37,15 @@ worklist, not the design. Design docs per mechanism live in `docs/upstream/`
 |---|---|
 | Spark (`spark-resumable-upstream`) | All 11 recovery suites green incl. 4 row-level suites; DAGSchedulerSuite 233/233 after fixture fix; scalastyle green. 12 files uncommitted awaiting owner's commit decision |
 | Celeborn (`celeborn`) | A3 auth precondition **committed** (`b80ba5f72`). Blob backend implemented; repair capacity-leak fixed (+regression test); repair-executor flags recorded. 11 files of blob work still uncommitted (A1 landing decision) |
-| Iceberg (`oss-fixes/iceberg`) | Ledger horizon guard + catalog matrix + drift/cleanup tests written. v4.1 module ported to the fork's evolved View/State API (unverified). B6 pin flipped to `5.0.0-SNAPSHOT` |
+| Iceberg (`oss-fixes/iceberg`) | **All landed & pushed**: horizon guard, catalog matrix, drift+cleanup tests, view/state port, B6 pin. Recovery suite 18/18 against the fork |
 | Docs | D-group complete: protocol spec folds in blob backend; runbook has blob ops; threat model T-15; split plan CIP-4/CIP-5 + session deltas; two new design docs |
-| Verification pipeline | Self-chaining via flock: `run-celeborn-repair-fix` → `run-iceberg-final` → `run-celeborn-a4`. Results land in `verification/logs/results-*.tsv` |
+| Verification pipeline | All chains drained green. E1 probe **PASS** — cluster E2E unblocked via `-Pspark-4.2 -Dspark.version=5.0.0-SNAPSHOT` |
 
 ### Immediate next actions (in order)
 
-1. **Verify the Iceberg v4.1 view/state port compiles and tests pass**
-   (`run-iceberg-final.sh` leg 4 — already queued; exercises B6+B2+B3).
-2. **Celeborn A4 + repair-fix suites** (`run-celeborn-a4.sh`, queued) — includes configdocs
-   regeneration gate for the new conf keys.
-3. **Owner decisions needed**: commit+push A1's 11-file Celeborn blob tree; commit Spark C4 tree;
-   then A2/A5/A6/A7/A8/A9 and E-group unlock.
-4. **E1 probe rerun** — should pass now that the fork publishes `sql/hive`; unblocks cluster E2E.
+1. ~~v41 verification~~ ✅ 18/18 · 2. ~~A4 suites~~ ✅ 4+11+8 · 3. ~~owner decisions~~ ✅ autonomy
+granted; everything verified is **landed and pushed to the forks**. 4. ~~E1 probe~~ ✅ PASS.
+Remaining fan-out: A2, A5–A9, C5–C9, B7, E2/E3 (see group sections).
 
 ---
 
@@ -62,7 +58,7 @@ worklist, not the design. Design docs per mechanism live in `docs/upstream/`
   fails at session construction naming both keys. Tests: `CelebornShuffleStageRecoveryExtensionSuiteJ`.
   Follow-ups flagged, not blocking: spark-it `CelebornDriverRecoverySuite` and harness
   `TwoDriverShuffleJob.scala` enable recovery without auth and must add the flag when they run.
-- 🔄 **A4 per-application quota**: implemented this session — `maxInlineBytesPerApp` /
+- ✅ **A4 per-application quota**: implemented, verified (suite 4/4 + pointer 11/11 + configdocs 8/8) and **committed `11c0a17fd`, pushed** — `maxInlineBytesPerApp` /
   `maxInlineRecordsPerApp` conf keys, per-app ledgers maintained by reserve/release, three-way
   distinguishable rejections (per-recovery / per-application / cluster-wide messages), HA snapshot
   validation + restore fold, reset path. New suite `RecoveryInlineCapacitySuite` (4 tests).
@@ -89,14 +85,13 @@ worklist, not the design. Design docs per mechanism live in `docs/upstream/`
 - 🔄 **B1 ledger horizon ≥ recovery window**: `SnapshotProducer.ledgerHorizonWarning` +
   `commit.idempotency.recovery-window-ms` property + boundary tests written; errorprone
   DefaultLocale caught and fixed. **Pending: iceberg-final core legs.**
-- 🔄 **B2 drift fails closed** + **B3 losing-writer cleanup**: seven per-dimension drift tests +
-  discard/deletion-failure/foreign-message tests written into `TestSparkWriteRecovery`.
-  **Pending: v41 leg compile of the view/state port.**
+- ✅ **B2 drift fails closed** + **B3 losing-writer cleanup**: seven per-dimension drift tests +
+  discard/deletion-failure/foreign-message trio **all green against the fork** (recoveryTest 18/18)
 - 🔄 **B4 catalog compatibility matrix**: `CatalogTests.testIdempotencyLedgerPropertyRoundTrip`
   (covers JDBC/Hive/REST/Nessie/InMemory) + HadoopCatalog twin. **Pending: iceberg-final.**
 - ✅ **B5 API verdict recorded**: `idempotencyKey` needs an upstream vote + revapi exception;
   rationale in ICEBERG-PROPOSAL.md Compatibility section.
-- 🔄 **B6 version decision executed**: pin flipped to fork `5.0.0-SNAPSHOT`; fork fully published to
+- ✅ **B6 version decision executed & proven**: recovery suite 18/18 against the fork; pin flipped to fork `5.0.0-SNAPSHOT`; fork fully published to
   mavenLocal (incl. sql/hive tonight). Fork's View/State API drift ported (SparkView extends
   builder-class View; ViewInfo/ViewChange/SupportsReplaceView removed; createView/replaceView
   re-signatured; SparkWriteRecovery state reduced to the global-commit oracle).
@@ -120,7 +115,7 @@ worklist, not the design. Design docs per mechanism live in `docs/upstream/`
 - ⬜ **C8 MiMa review** — after C7.
 - ⬜ **C9 benchmark results** — `SPARK_GENERATE_BENCHMARK_FILES=1`, replace arithmetic table in
   RETENTION-AND-SIZING §3.
-- 🔄 **C10 AQE coverage** — scheduler-side de-risked (adoption defect hypothesis resolved as fixture
+- 🔄 **C10 AQE coverage** — suite green (2/2) and scheduler de-risked (adoption defect hypothesis resolved as fixture
   bug; suite 233/233). Still owed: stage-reuse/coalescing/skew behaviours vs an adopted stage.
 
 ## Group D — Documentation
@@ -135,7 +130,8 @@ worklist, not the design. Design docs per mechanism live in `docs/upstream/`
 
 ## Group E — End-to-end harnesses
 
-- 🔄 **E1 version probe**: expected PASS now (fork publishes everything incl. sql/hive); rerun cheap.
+- ✅ **E1 version probe**: **PASS** — Celeborn Spark client compiles against 5.0.0-SNAPSHOT
+  (`-Pspark-4.2`), after fixing the probe's own path bug and dropping a removed-API override.
 - ⬜ **E2 two-driver shuffle test**: zero-task assertion; needs E1 + working v4.1 client.
   Harness job must add `spark.celeborn.auth.enabled=true` (A3 precondition).
 - ⬜ **E3 two-driver write test**: blocked on B6 verification + C7.

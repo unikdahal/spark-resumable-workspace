@@ -12,7 +12,6 @@ export PATH="$JAVA_HOME/bin:/usr/local/bin:/usr/bin:/bin"
 
 exec 9>"$LOGS/.verification.lock"
 flock 9
-while pgrep -a java 2>/dev/null | grep -q 'classworlds\|GradleDaemon'; do sleep 20; done
 
 record() { printf '%s\t%s\t%s\n' "$1" "$2" "$3" | tee -a "$RESULTS"; }
 
@@ -35,12 +34,11 @@ for entry in \
   log="$LOGS/celeborn-a4-$tag.log"
   if [[ "$tag" == "configdocs" ]]; then
     args=(-pl common -am -Dtest=none -DwildcardSuites="$suite")
-    env_args=(UPDATE=1)
+    export UPDATE=1
   else
     args=(-pl master -am -Dtest=none -DwildcardSuites="$suite")
-    env_args=()
   fi
-  if mvn "${args[@]}" env "${env_args[@]}" test > "$log" 2>&1; then
+  if mvn "${args[@]}" test > "$log" 2>&1; then
     record "celeborn:a4-$tag" PASS "$(grep -E 'Total number of tests run|Tests run:' "$log" | tail -1)"
   else
     record "celeborn:a4-$tag" FAIL "$(grep -E '\*\*\* FAILED|error:|Tests run.*Fail' "$log" | head -3 | tr '\n' ' ')"

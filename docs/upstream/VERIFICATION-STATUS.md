@@ -157,9 +157,14 @@ with its triage notes above.
 |---|---|---|
 | `spotlessApply` + `spotlessCheck` | PASS | changed-vs-ratchet files formatted |
 | errorprone via `compileJava` | **caught a real defect** in the new B1 code: `String.format` without `Locale.ROOT` ([DefaultLocale]) — fixed same session |
-| `:iceberg-core:test TestSnapshotIdempotency` (B1) | pending rerun | first run failed at compile on the DefaultLocale above |
-| Hadoop/JDBC catalog round-trip legs (B4) | pending rerun | same |
-| v4.1 module against fork 5.0.0-SNAPSHOT (B6+B2+B3) | blocked on artifact | fails resolving `spark-hive_2.13:5.0.0-SNAPSHOT`; corrective install (`sql/pipelines`,`sql/hive -am`) queued |
+| `:iceberg-core:test TestSnapshotIdempotency` (B1) | **PASS** | 18 ledger cases incl. horizon boundary |
+| Hadoop/JDBC catalog round-trip legs (B4) | **PASS** | property survival through both catalogs |
+| v4.1 recovery sourceset against fork 5.0.0-SNAPSHOT | **PASS 18/18** | required porting views to the builder class API, dropping per-partition state methods, ee10 jetty import, StagedTable metrics override; drift details in commit `c681dd1` |
+
+**2026-08-25 final:** E1 version probe PASS (`-Pspark-4.2` + fork snapshot); Spark C4 tree
+committed as two commits on `resumable-driver-upstream` and pushed; Celeborn A1/A4 landed as
+`11c0a17fd` + blocker fix `b4e7cad58` on `resume-adoption-patch10`. All four forks green and
+pushed.
 
 ### 2b. Pre-row-level Spark run log (2026-08-24, JDK 25)
 

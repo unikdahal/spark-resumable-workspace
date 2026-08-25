@@ -9,7 +9,6 @@ export PATH="$JAVA_HOME/bin:/usr/local/bin:/usr/bin:/bin"
 
 exec 9>"$LOGS/.verification.lock"
 flock 9
-while pgrep -a java 2>/dev/null | grep -q 'classworlds\|GradleDaemon'; do sleep 20; done
 
 ( cd "$ICEBERG" && nice -n 5 taskset -c 0,1 env "JAVA_HOME=$JAVA_HOME" \
     ./gradlew --max-workers=2 --console=plain \

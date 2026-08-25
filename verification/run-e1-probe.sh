@@ -6,6 +6,5 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 LOGS="$HERE/logs"
 exec 9>"$LOGS/.verification.lock"
 flock 9
-while pgrep -a java 2>/dev/null | grep -q 'classworlds\|GradleDaemon'; do sleep 20; done
 "$HERE/../dev-harnesses/celeborn-cluster-harness/probe-versions.sh"
 echo "probe rc=$?" | tee "$LOGS/results-e1-probe.txt"
