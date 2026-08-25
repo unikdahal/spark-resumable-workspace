@@ -261,3 +261,12 @@ dropped a `$CELEBORN_DIR` prefix on the spark-3 entry
 attempt-4/5 scenario failures are explained by these classpath defects —
 no recovery-logic failure has been observed yet. Auth (A3 precondition)
 is wired end-to-end via conf + job from attempt 4 onward.
+
+### C7 API freeze (2026-08-25)
+`dev/create-recovery-api-artifact.sh` produced a 36-class artifact from the current build
+(including the `recoveryExecutionId` field and `beforeRecoveryAnchor` hook landed in
+`e43a9458678` and the v3/v4 fixture work in `e1244dff8ae`). Artifact + SHA-256:
+`verification/evidence/recovery-api-frozen.jar`
+(`1905475f0aeee7d2e5cf82e8f0d5a60d042f7a180cf9dd7e4e59c3a535a20145`). All Spark suites green at
+freeze time: 12 recovery suites, DAGSchedulerSuite 233/233, AQE suite, compatibility suite with
+the new v3/v4 cases.
