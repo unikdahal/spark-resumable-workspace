@@ -125,6 +125,11 @@ consistent 2-mapper/2-reducer shape; suite rerun green: **233/233**
    Per-recovery and global budgets crept monotonically until publications were refused for
    capacity. Fix: bytes/records split in `releaseRecoveryTaskCommitCapacity`; regression test in
    `RecoveryBlobPointerSuite`.
+7. **A5 self-review finding (fix staged)**: `releaseRecoveryExecutionMeta` removes the
+   `committedShuffleCatalogIndex` entry only for the LAST matched catalog; an execution that
+   published several shuffles would leave stale semantic-key index entries pointing at dropped
+   catalogs. Fix: collect every matched catalog's recoveryKey during the removal loop and drop
+   each index entry alongside its record.
 6. **Pre-A1 review notes on `RpcRecoveryBlobRepairExecutor`** (flagged, left for the A1 owner):
    (a) the per-worker `RpcEndpointRef` cache never invalidates, so a source worker that restarts
    on the same host:port keeps getting a possibly-dead ref — matches the worker-side
@@ -222,3 +227,26 @@ section of the PDF has stayed "pending" — it is a decision, not a task.
 ## 5. Build log
 
 *(appended as builds complete)*
+
+### Findings (2026-08-25, harness/benchmark bring-up)
+
+**#8 — Benchmark runner needs a heap cap under concurrent builds.**
+The first sql/core test-compile for the C9 microbenchmarks was OOM-killed
+mid-build while the E2 harness was also compiling (three heavy JVMs on
+two cores, 15 GB box); `-q` swallowed all output so the death looked like
+a silent no-op and the follow-on java step failed with a confusing
+ClassNotFoundException. Rule: any runner that may overlap another build
+must pin `MAVEN_OPTS=-Xmx2g -XX:ActiveProcessorCount=2`. The C9 rerun
+runs capped; results land in
+`sql/core/benchmarks/RecoveryTaskCommitBenchmark-results.txt`.
+
+**#9 — Two-driver harness needed four attempts to reach real code.**
+Failures in order: sibling-repo paths resolved one directory too shallow;
+missing JDK pin (sun.misc.Signal removed on modern JDKs); driver
+classpath missing `client-spark/common`
+(NoClassDefFoundError: ExecutorShuffleIdTracker); then the fix for that
+dropped a `$CELEBORN_DIR` prefix on the spark-3 entry
+(ClassNotFoundException: SparkShuffleManager relative-path miss). All six
+attempt-4/5 scenario failures are explained by these classpath defects —
+no recovery-logic failure has been observed yet. Auth (A3 precondition)
+is wired end-to-end via conf + job from attempt 4 onward.
