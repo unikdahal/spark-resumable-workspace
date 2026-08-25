@@ -270,3 +270,17 @@ is wired end-to-end via conf + job from attempt 4 onward.
 (`1905475f0aeee7d2e5cf82e8f0d5a60d042f7a180cf9dd7e4e59c3a535a20145`). All Spark suites green at
 freeze time: 12 recovery suites, DAGSchedulerSuite 233/233, AQE suite, compatibility suite with
 the new v3/v4 cases.
+
+### C8 binary-compatibility review (2026-08-25, against checkpoint ace8a2de502)
+The recovery surface is new code on top of the checkpoint with one deliberate break:
+`SourceRecoveryInfo` gained a third constructor field (`recoveryExecutionId`) in `e43a9458678`,
+changing its arity from 2 to 3. Everything else is additive: new interfaces
+(`SupportsRecoveryAnchor`, `RecoveryTaskCommitStore`, metric/summary types), new classes
+(`ShuffleStageRecovery*`, `RecoveredShuffleStage`), defaulted methods only (`beforeRecoveryAnchor`).
+Consequences recorded for the freeze:
+- Code compiled against the checkpoint's 2-arg `SourceRecoveryInfo` will not link; no such
+  external consumer exists (the Iceberg fork compiles against the post-change build and its
+  recoveryTest passes). The class is `@DeveloperApi @Experimental` and unreleased.
+- MiMa vs upstream master would flag exactly this one change; accepted as the intended final
+  shape before freezing. The frozen artifact (`verification/evidence/recovery-api-frozen.jar`,
+  36 classes) is now the compatibility contract going forward.
