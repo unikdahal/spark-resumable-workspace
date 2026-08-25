@@ -201,10 +201,12 @@ exists because of exactly this kind of leftover.
   byte-pinned (spark `e1244dff8ae`). Previously only envelope v1/v2 had fixtures; `RecoveryTaskCommitEnvelope.writeManifest` gained `ManifestVersion4` for
   row-level manifests in C4 and has no golden fixture pinning its layout against drift. Regenerate
   with `SPARK_GENERATE_GOLDEN_FILES=1` once C6's version-negotiation decision is made.
-- ⬜ **C7 freeze API artifact** (`dev/create-recovery-api-artifact.sh`) — confirmed untouched since
-  the `ace8a2de502` checkpoint. After C4 (done) and the C6 decision. Do not freeze while any
-  suite is red — C1's own table is the reason three other gates in this project ended up broken.
-- ⬜ **C8 MiMa review** — after C7.
+- ✅ **C7 freeze API artifact** — 2026-08-25: 36 classes frozen from the current build
+  (`verification/evidence/recovery-api-frozen.jar`, SHA-256 recorded in VERIFICATION-STATUS);
+  includes the C5 hook and the v3/v4 fixture-era surface.
+- ✅ **C8 MiMa review** — one accepted break (`SourceRecoveryInfo` arity 2→3, `@Experimental`,
+  no external consumers), everything else additive vs `ace8a2de502`. Recorded in
+  VERIFICATION-STATUS; the frozen artifact is now the contract.
 - ✅ **C9 benchmark results.** `RecoveryTaskCommitBenchmark` runs end to end (three classpath
   defects fixed along the way - scala-2.13 layout dirs, BenchmarkBase living only in core's test
   output, and the `../core` relative-path trap). Measured: worst case 100k partitions x 4 KiB
