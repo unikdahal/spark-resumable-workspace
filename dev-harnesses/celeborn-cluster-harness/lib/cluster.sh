@@ -22,11 +22,13 @@ wait_for_port() { # wait_for_port <port> <label> [tries]
 
 build_celeborn_classpaths() {
   local out="$1"
-  ( cd "$CELEBORN_DIR" && nice -n 10 taskset -c 0 ./build/mvn -q -T 1 -P"$CELEBORN_PROFILE" \
+  # -o keeps the build off the network: every artifact is already in the local repo, and a
+  # metadata lookup that stalls (no socket timeout) once hung this step for 10+ minutes.
+  ( cd "$CELEBORN_DIR" && nice -n 10 taskset -c 0 ./build/mvn -q -o -T 1 -P"$CELEBORN_PROFILE" \
       -pl master,worker,client-spark/spark-3 -am -DskipTests -Dmaven.javadoc.skip=true install ) \
     > "$out/celeborn-build.log" 2>&1 || return 1
   for module in master worker; do
-    ( cd "$CELEBORN_DIR" && taskset -c 0 ./build/mvn -q -P"$CELEBORN_PROFILE" -pl "$module" \
+    ( cd "$CELEBORN_DIR" && taskset -c 0 ./build/mvn -q -o -P"$CELEBORN_PROFILE" -pl "$module" \
         dependency:build-classpath -Dmdep.outputFile="$out/$module-cp.txt" ) >> "$out/celeborn-build.log" 2>&1
   done
 }
