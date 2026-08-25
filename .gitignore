@@ -63,3 +63,6 @@ verification/logs/
 # Node
 node_modules/
 **/node_modules/
+
+# agent scratch
+tmp/

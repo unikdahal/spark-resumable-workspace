@@ -50,7 +50,7 @@ only.
 | Celeborn (`celeborn`) | A1, A3, A4 landed and pushed (`b80ba5f72`, `11c0a17fd`, `b4e7cad58` — the last is the E1-unblocking `shuffleBlockResolver` compile fix). **1 uncommitted file**, unrelated to any group task — see Audit findings |
 | Iceberg (`oss-fixes/iceberg`) | **Clean, 0 uncommitted files.** B1, B2, B3, B4, B5, B6 all landed and pushed (`5ee1e72`, `372fb10`, `c681dd1`, `f1e81e8`, `d5fcfc2`). Confirmed in tree: `gradle/libs.versions.toml` pins `spark41 = "5.0.0-SNAPSHOT"` |
 | Docs | D-group complete: protocol spec folds in blob backend; runbook has blob ops; threat model T-14/T-15; split plan CIP-4/CIP-5 + session deltas; two new design docs |
-| Verification pipeline | E1 probe **PASS** — cluster E2E unblocked via `-Pspark-4.2 -Dspark.version=5.0.0-SNAPSHOT`. `verification/logs/*.tsv` are machine-local and already stale relative to the commits above; re-run before trusting them |
+| Verification pipeline | E1 probe **PASS**; E2 two-driver harness on attempt 5 — it has already flushed out four real defects (probe path/JDK pin, dual-target `shuffleBlockResolver`, scala-2.13.17 worker compile, upstream HA `node.ids` startup crash — all fixed). C9 benchmark generation + C6 golden-fixture regeneration queued on the Spark lane |
 
 ### Immediate next actions (in order)
 
@@ -229,7 +229,9 @@ exists because of exactly this kind of leftover.
 
 ## Group E — End-to-end harnesses
 
-- ✅ **E1 version probe**: **PASS** — Celeborn's Spark client compiles against `5.0.0-SNAPSHOT`
+- ✅ **E1 version probe**: **PASS** after four real fixes it flushed out (probe paths, JDK pin,
+  dual-target resolver shim, upstream HA `node.ids` startup crash fixed in `CelebornConf`).
+  Celeborn's Spark client compiles against `5.0.0-SNAPSHOT`
   (`-Pspark-4.2`), after fixing the probe's own path bug and, in `b4e7cad58`, dropping the
   `shuffleBlockResolver` override the Spark 5 `ShuffleManager` interface no longer declares.
 - ⬜ **E2 two-driver shuffle test**: zero-task assertion; needs E1 (done) + a working v4.1 client.
