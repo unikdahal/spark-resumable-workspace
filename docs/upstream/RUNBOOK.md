@@ -158,5 +158,8 @@ the safe direction).
 - **No recovery-state inspection tool.** There is no supported way to list what recovery state exists
   for an application; the RPCs exist (`GetCommittedShuffleCatalog`, `BatchGetRecoveryTaskCommits`) but
   no CLI wraps them.
-- **No completed-execution cleanup.** State for a successful run is held until the lease lapses.
+- **Completed-execution cleanup is partial.** The driver extension releases its registered
+  shuffle recovery keys on normal application end (`ReleaseRecoveryExecution`, idempotent,
+  fenced); write-side records are not released yet and any abnormal end still waits for the
+  lease timeout backstop.
 - **No per-application quota** on the global inline budget: one large write can starve others.
