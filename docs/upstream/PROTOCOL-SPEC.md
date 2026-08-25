@@ -456,9 +456,12 @@ Ledger entry encoding: versioned (`IDEMPOTENCY_LEDGER_VERSION = 1`), `DataOutput
    Spark to expose the execution recovery identity to the connector during source anchoring.
 4. **No TTL coupling.** Celeborn's recovery-record retention and Iceberg's ledger horizon are
    configured independently and can disagree. See `RETENTION-AND-SIZING.md`.
-5. **No envelope-version negotiation.** `formatVersion` is checked for exact equality (`== 1`), so a
-   mixed-version fleet cannot interoperate at all. That is the safe choice today; it becomes a
-   rolling-upgrade blocker the moment there is a version 2. See `UPGRADE-AND-ROLLBACK.md`.
+5. **Envelope-version negotiation — decided 2026-08-25.** Task envelopes use a readable set
+   {1,2,3} with writers emitting the feature-derived required version and readers failing closed
+   on both unknown versions and known-but-mismatched ones (see `UPGRADE-AND-ROLLBACK.md` §2).
+   The write-manifest channel carries its own ManifestVersion4. What remains is fixture coverage:
+   golden files exist for task envelopes v1/v2 only; v3 and manifest v4 need them before C7 freezes
+   the artifact.
 6. **Streaming/micro-batch is out of scope** and unsupported by construction.
 
 ---

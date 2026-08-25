@@ -19,21 +19,28 @@ accidentally dropped as an optimisation.
 
 ## 2. Rolling upgrade: what actually works today
 
-### Spark envelope (V1) — **no rolling upgrade path**
+### Spark envelope (V1) — **decision made 2026-08-25: readable set + exact-feature match**
 
-`decode` requires `formatVersion == 1`. The moment a version 2 exists, a driver running the new
-Spark cannot read records written by the old one and vice versa. That is fine while there is one
-version, and it is the correct fail-closed default, but it means the *first* format change is a
-breaking change unless a negotiation mechanism is added first. The cheapest option, if it is wanted,
-is to accept a **set** of readable versions while writing only the newest:
+The mechanism the proposal sketched is now implemented in
+`RecoveryTaskCommitEnvelope`: decode accepts a **readable set** (`Version1 || Version2 || Version3`,
+with ManifestVersion4 on the separate write-manifest channel), while writers emit exactly
+`requiredFormatVersion(context)` - derived from the execution's own feature requirements
+(row-level summary -> 3, metrics schema -> 2, otherwise 1).
 
-```scala
-private val FormatVersion = 2
-private val ReadableFormatVersions = Set(1, 2)
-```
+Two rules make this safe rather than merely lenient:
 
-That decision should be made **before** upstream review, because it changes the compatibility
-promise attached to the API.
+1. **Unknown versions still fail loudly** ("Unsupported ... envelope version"), so an old driver
+   reading a newer record cannot silently mis-decode.
+2. **A known-but-different version also fails** ("does not match required version"): if the record's
+   version differs from what this driver's own execution context produces, the two drivers
+   disagree about the execution's feature set, and adopting the record would mean decoding with
+   the wrong layout expectations. That disagreement fails closed instead of degrading.
+
+Consequence for rolling upgrades: replacing a driver mid-recovery with a different Spark build or
+different write options aborts that write's recovery (recomputation, no corruption); upgrading the
+fleet between independent executions needs nothing at all. Adding a future v4 task envelope means
+adding it to the readable set **and** shipping a golden fixture per accepted version - the
+write-manifest v4 fixture is still outstanding (see VERIFICATION-STATUS findings #4).
 
 ### Connector codec (V2) — contract says yes, Iceberg says no
 

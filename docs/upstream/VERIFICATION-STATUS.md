@@ -161,6 +161,18 @@ with its triage notes above.
 | Hadoop/JDBC catalog round-trip legs (B4) | **PASS** | property survival through both catalogs |
 | v4.1 recovery sourceset against fork 5.0.0-SNAPSHOT | **PASS 18/18** | required porting views to the builder class API, dropping per-partition state methods, ee10 jetty import, StagedTable metrics override; drift details in commit `c681dd1` |
 
+### 2c. C5+B7 anchor-identity wiring, 2026-08-25
+
+`SourceRecoveryInfo` now carries `recoveryExecutionId`; `SupportsRecoveryAnchor.beforeRecoveryAnchor`
+runs before the selected state is read; Iceberg `SparkTable` pins the named snapshot under a
+deterministic ref (`RecoveryPins.pinName`) with
+`recovery.snapshot-pin.max-ref-age-ms` (default 7d).
+
+| Gate | Result |
+|---|---|
+| Spark `core,sql/api,sql/catalyst,sql/core` install with new hook | **PASS** |
+| Iceberg recoveryTest vs fork | **PASS 19/19** incl. new deterministic-pin test (idempotence, immovability, per-execution independence, default age) |
+
 **2026-08-25 final:** E1 version probe PASS (`-Pspark-4.2` + fork snapshot); Spark C4 tree
 committed as two commits on `resumable-driver-upstream` and pushed; Celeborn A1/A4 landed as
 `11c0a17fd` + blocker fix `b4e7cad58` on `resume-adoption-patch10`. All four forks green and

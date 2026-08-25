@@ -29,6 +29,7 @@ object TwoDriverShuffleJob {
       .config("spark.celeborn.master.endpoints", master)
       .config("spark.celeborn.client.application.uniqueId", appUniqueId)
       .config("spark.celeborn.driverRecovery.enabled", "true")
+      .config("spark.celeborn.auth.enabled", "true")
       .config("spark.celeborn.driverRecovery.id", recoveryId)
       .config("spark.celeborn.driverRecovery.leaseDuration", leaseDuration)
       .config("spark.celeborn.driverRecovery.probeTimeout", "5s")

@@ -28,7 +28,8 @@ test run that happened, or it is marked as unverified. Nothing is restated from 
 | `ROW-LEVEL-RECOVERY-DESIGN.md` | you are touching recoverable DELETE/UPDATE/MERGE: the generation fence, manifest, and summary semantics |
 | `AUTH-PRECONDITION-DESIGN.md` | you are changing how recovery enablement interacts with authentication (T-1) |
 | `PATCH-SPLIT-PLAN.md` | you are preparing pull requests |
-| `SPARK-SPIP-RESUMABLE-EXECUTION.md` | the Spark-side proposal |
+| `SPARK-SPIP-RESUMABLE-EXECUTION.md` | the original Spark-side proposal draft — internal audit note now, superseded for external use |
+| `SPARK-SPIP-RESUMABLE-EXECUTION-GENERALIZED.md` | the proposal meant for dev@spark.apache.org: same mechanism, motivation and framing rewritten to name no specific shuffle service, table format, or deployment substrate |
 | `CELEBORN-CIP-DRIVER-RECOVERY.md` | the Celeborn-side proposal |
 | `ICEBERG-PROPOSAL.md` | the two Iceberg-side proposals |
 

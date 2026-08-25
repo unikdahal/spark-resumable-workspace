@@ -13,7 +13,7 @@ source "$HERE/lib/cluster.sh"
 WORK="${WORK_DIR:-/tmp/two-driver-shuffle}"
 LOGS="$WORK/logs"
 CONF="$WORK/conf"
-SPARK_MVN="$HERE/../spark-resumable-upstream/build/mvn"
+SPARK_MVN="$HERE/../../spark-resumable-upstream/build/mvn"
 PASS=0; FAIL=0
 
 log()   { echo "E2E-UPSTREAM: $*"; }

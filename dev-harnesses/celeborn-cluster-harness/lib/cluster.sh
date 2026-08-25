@@ -2,7 +2,11 @@
 # Celeborn HA cluster lifecycle for the two-driver test. Sourced, not executed.
 # Every JVM here is pinned to one core.
 
-CELEBORN_DIR="${CELEBORN_DIR:-$HERE/../celeborn}"
+JAVA_HOME="${JAVA_HOME:-/home/unik/.sdkman/candidates/java/17.0.11-tem}"
+export JAVA_HOME
+export PATH="$JAVA_HOME/bin:/usr/local/bin:/usr/bin:/bin"
+
+CELEBORN_DIR="${CELEBORN_DIR:-$HERE/../../celeborn}"
 CELEBORN_PROFILE="${CELEBORN_PROFILE:-spark-4.2}"
 CLUSTER_PIDS=()
 
