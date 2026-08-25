@@ -237,14 +237,18 @@ section of the PDF has stayed "pending" — it is a decision, not a task.
 manifest (version 4), so those layouts remain unpinned against drift.
 Follow-up: add both cases to the suite and regenerate.
 
-**#8 — Benchmark runner needs a heap cap under concurrent builds.**
-The first sql/core test-compile for the C9 microbenchmarks was OOM-killed
-mid-build while the E2 harness was also compiling (three heavy JVMs on
-two cores, 15 GB box); `-q` swallowed all output so the death looked like
-a silent no-op and the follow-on java step failed with a confusing
-ClassNotFoundException. Rule: any runner that may overlap another build
-must pin `MAVEN_OPTS=-Xmx2g -XX:ActiveProcessorCount=2`. The C9 rerun
-runs capped; results land in
+**#8 — Benchmark classpath needed three fixes; heap-cap rule kept anyway.**
+The C9 microbenchmark java step failed with ClassNotFoundException across
+five runs. Real causes, in order: Spark's Maven build emits classes under
+`target/scala-2.13/{test-,}classes`, not `target/{test-,}classes`;
+`BenchmarkBase` lives only in core's TEST output and never appears in
+`dependency:build-classpath` output (which stops at installed main jars);
+and from `sql/core`, a relative `../core` path resolves to `sql/core`
+itself, so the core test-classes entry must be absolute. The earlier OOM
+theory for one silent build death was wrong (or at least unproven), but
+the operational rule stands: any runner that may overlap another build
+pins `MAVEN_OPTS` with an explicit heap. A manual run with the final
+classpath executes all three cases; full results land in
 `sql/core/benchmarks/RecoveryTaskCommitBenchmark-results.txt`.
 
 **#9 — Two-driver harness needed four attempts to reach real code.**
