@@ -25,7 +25,7 @@ log="$LOGS/spark-c9-benchmark.log"
     --add-opens=java.base/java.lang=ALL-UNNAMED \
     --add-opens=java.base/java.nio=ALL-UNNAMED \
     --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-    -cp "target/scala-2.13/test-classes:target/scala-2.13/classes:$(cat /home/unik/Coding/spark/tmp/c9/sqlcore-cp.txt)" \
+    -cp "target/scala-2.13/test-classes:target/scala-2.13/classes:/home/unik/Coding/spark/spark-resumable-upstream/core/target/scala-2.13/test-classes:$(cat /home/unik/Coding/spark/tmp/c9/sqlcore-cp.txt)" \
     org.apache.spark.sql.execution.benchmark.RecoveryTaskCommitBenchmark ) > "$log" 2>&1
 rc=$?
 grep -E "Benchmark|ms *$|best" "$log" | head -20 >> /home/unik/Coding/spark/tmp/c9/summary.txt 2>/dev/null
