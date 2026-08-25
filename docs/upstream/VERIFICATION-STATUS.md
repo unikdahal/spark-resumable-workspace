@@ -230,6 +230,13 @@ section of the PDF has stayed "pending" — it is a decision, not a task.
 
 ### Findings (2026-08-25, harness/benchmark bring-up)
 
+**#7b — C6 status correction: only v1/v2 are pinned; #4 remains open.**
+`run-c6-golden.sh` regenerated `task-commit-envelope-v1.txt`/`v2.txt`
+(PASS, 41 s) but `RecoveryTaskCommitCompatibilitySuite` has no case for
+`rowLevelSummaryRequired=true` (envelope v3) nor for the write-generation
+manifest (version 4), so those layouts remain unpinned against drift.
+Follow-up: add both cases to the suite and regenerate.
+
 **#8 — Benchmark runner needs a heap cap under concurrent builds.**
 The first sql/core test-compile for the C9 microbenchmarks was OOM-killed
 mid-build while the E2 harness was also compiling (three heavy JVMs on
