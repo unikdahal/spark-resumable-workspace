@@ -122,9 +122,11 @@ exists because of exactly this kind of leftover.
   `MiniClusterFeature`-based suite drives `ReplicateRecoveryBlob` across two real worker processes.
   `RecoveryBlobReplicationSuite` (client module) exercises the replication *logic* against a fake
   transport, which is a different test than this task asks for. After A1 (already landed).
-- ⬜ **A5 explicit completed-execution release**: master RPC + meta manager + client
-  `LifecycleManager`; releasing twice harmless, capacity returns to zero. Confirmed still absent —
-  no release/complete RPC exists in the tree. Blocked on nothing now that A1 has landed.
+- ✅ **A5 explicit completed-execution release** — implemented this session: lease-fenced,
+  idempotent `ReleaseRecoveryExecution` RPC; meta cleanup returns per-entry budget (bytes/records
+  split); client fires on normal application end. **Committed & pushed (`bee1e94ff`).**
+  v1 scope: shuffle-side keys registered by the extension; a write-side release hook on the V2
+  success path is the natural follow-up.
 - ⬜ **A6 remote-storage fallback tier**: design §8; second tier never satisfies quorum alone.
 - ⬜ **A7 HA chaos: leader change during publication** — new HA suite asserting exactly-one-pointer
   convergence + idempotent replay.
@@ -255,9 +257,7 @@ exists because of exactly this kind of leftover.
 
 ## Highest value if you can only pick three
 
-1. **A5 explicit completed-execution release** — without it, capacity only returns when leases
-   lapse, which caps real-cluster scalability of repeated resumable jobs. Nothing blocks starting
-   this now.
+1. ~~A5~~ landed (`bee1e94ff`).
 2. **C5 → B7** — expose the execution recovery identity during source anchoring, then wire Iceberg's
    already-implemented pin lifecycle to it. This is the last piece of the read-side story and it
    unblocks a whole group task, not just one.
