@@ -197,8 +197,8 @@ exists because of exactly this kind of leftover.
   `SupportsRecoveryAnchor.beforeRecoveryAnchor` is a defaulted hook invoked before the anchor is
   read, so connectors can derive deterministic pins (Iceberg B7 consumes exactly this).
 - ⬜ **C6 envelope version negotiation** — decide a readable-version set before the API freeze.
-  Confirmed gap: `sql/core/src/test/resources/recovery/` holds golden fixtures for envelope
-  versions v1 and v2 only; `RecoveryTaskCommitEnvelope.writeManifest` gained `ManifestVersion4` for
+  RESOLVED: `run-c6-golden-v3.sh` regenerated with v3+v4 cases - all four durable layouts now
+  byte-pinned (spark `e1244dff8ae`). Previously only envelope v1/v2 had fixtures; `RecoveryTaskCommitEnvelope.writeManifest` gained `ManifestVersion4` for
   row-level manifests in C4 and has no golden fixture pinning its layout against drift. Regenerate
   with `SPARK_GENERATE_GOLDEN_FILES=1` once C6's version-negotiation decision is made.
 - ⬜ **C7 freeze API artifact** (`dev/create-recovery-api-artifact.sh`) — confirmed untouched since
