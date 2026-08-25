@@ -170,7 +170,8 @@ exists because of exactly this kind of leftover.
   (jetty servlets, spatial types) still assume stock Spark and were correctly left alone rather than
   ported wholesale. `f1e81e8` did the actual pin flip; `d5fcfc2` is a spotless-only follow-up.
   Evidence: `recoveryTest` 18/18 against `5.0.0-SNAPSHOT` on JDK 17. **Nothing pending here.**
-- ⬜ **B7 recovery pins wired into `SparkTable`/`SparkScanBuilder`** — blocked on C5.
+- ✅ **B7 recovery pins wired into `SparkTable`/`SparkScanBuilder`** — iceberg `288b35b`, compiled
+  against the C5 hook; v4.1 recoveryTest green against the fork.
 
 ## Group C — Spark
 
@@ -191,8 +192,10 @@ exists because of exactly this kind of leftover.
   private helper named `execute` colliding with `Suite.execute`) and an 11-parameter scalastyle
   violation, resolved by grouping three schema options into `RowLevelSchemas` rather than raising
   the argcount limit.
-- ⬜ **C5 expose execution recovery identity during source anchoring** — blocks B7. Design sketch in
-  `RETENTION-AND-SIZING.md` §2 / `ICEBERG-PROPOSAL.md` open items.
+- ✅ **C5 expose execution recovery identity during source anchoring** — landed as spark commit
+  `e43a9458678`: `SourceRecoveryInfo` gained `recoveryExecutionId`,
+  `SupportsRecoveryAnchor.beforeRecoveryAnchor` is a defaulted hook invoked before the anchor is
+  read, so connectors can derive deterministic pins (Iceberg B7 consumes exactly this).
 - ⬜ **C6 envelope version negotiation** — decide a readable-version set before the API freeze.
   Confirmed gap: `sql/core/src/test/resources/recovery/` holds golden fixtures for envelope
   versions v1 and v2 only; `RecoveryTaskCommitEnvelope.writeManifest` gained `ManifestVersion4` for
@@ -202,8 +205,11 @@ exists because of exactly this kind of leftover.
   the `ace8a2de502` checkpoint. After C4 (done) and the C6 decision. Do not freeze while any
   suite is red — C1's own table is the reason three other gates in this project ended up broken.
 - ⬜ **C8 MiMa review** — after C7.
-- ⬜ **C9 benchmark results** — `SPARK_GENERATE_BENCHMARK_FILES=1`, then replace the arithmetic
-  table in `RETENTION-AND-SIZING.md` §3 with measured numbers.
+- ✅ **C9 benchmark results.** `RecoveryTaskCommitBenchmark` runs end to end (three classpath
+  defects fixed along the way - scala-2.13 layout dirs, BenchmarkBase living only in core's test
+  output, and the `../core` relative-path trap). Measured: worst case 100k partitions x 4 KiB
+  decodes in ~1.1 s batched on one core; write-manifest build+digest ~3 ms; CPU never binds before
+  master memory does. Table + provenance in `RETENTION-AND-SIZING.md` §3.
 - ✅ **C10 AQE coverage, more complete than previously recorded.** `ShuffleStageRecoveryAQESuite`
   exists and is 2/2 green (`results-spark-c10.tsv`): `"recovered statistics and map output are
   shared by reused shuffle stages"` and `"AQE coalesced and skew reads retain a recovered shuffle
