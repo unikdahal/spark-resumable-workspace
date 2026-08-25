@@ -101,3 +101,33 @@ without corrupting accounting, anchor immutability, catalog validation/replay, a
 cleanup, HA state-machine replay, worker lease store, client binding). Still missing: multi-master
 failover during publication, lease-expiry chaos, network partition between old driver, replacement
 driver, workers and leader, and rolling-version protocol compatibility.
+
+## Completed-execution release (A5, designed 2026-08-25)
+
+Today recovery state is reclaimed only when a dead application's heartbeat times out past its
+lease - so a *successful* run holds catalogs, commits, pointers and budget for the full lease
+(10m-24h), capping how many resumable jobs a cluster can absorb per hour.
+
+Planned surface, one fenced idempotent RPC:
+
+```
+ReleaseRecoveryExecution { appId, recoveryId, leaseEpoch, leaseOwner }
+-> releasedRecords, releasedBytes   (0/0 when nothing matched = harmless double-release)
+```
+
+Semantics:
+
+1. Master validates `checkAuth` + live lease ownership exactly like pointer CAS; a fenced caller
+   learns it is fenced rather than hearing silence.
+2. Removal set: task-commit records and blob pointers whose key is `(appId, recoveryId)`, plus
+   committed shuffle catalogs whose record names that pair (their semantic-key index entries go
+   with them). Capacity accounting is released per removed entry through the same
+   bytes/records-split path repairs use.
+3. **Source anchors are deliberately retained**: their identity (`source:v1:<sourceId>`) is shared
+   across executions of the same source, so releasing one execution's anchors could strand a
+   concurrent sibling. Anchor expiry needs its own identity model first.
+4. Client trigger: `LifecycleManager.releaseRecoveryExecution(recoveryId)` fired from the driver
+   extension on normal application end when recovery was actually used.
+
+Failure mode stays fail-closed: an unreachable master simply leaves state to age out under the
+existing timeout, which remains the backstop.
